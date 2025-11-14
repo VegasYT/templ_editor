@@ -329,10 +329,11 @@ const App = () => {
     const hasChildren = element.children !== undefined;
 
     if (hasChildren) {
-      // For containers: divide into 3 zones
-      if (y < height * 0.25) {
+      // For containers: divide into 3 zones with larger before/after zones
+      // before: first 35%, inside: middle 30%, after: last 35%
+      if (y < height * 0.35) {
         setDropZone('before');
-      } else if (y > height * 0.75) {
+      } else if (y > height * 0.65) {
         setDropZone('after');
       } else {
         setDropZone('inside');

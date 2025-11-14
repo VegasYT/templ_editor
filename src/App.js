@@ -783,10 +783,15 @@ const App = () => {
     return (
       <div
         key={`dropzone-${zoneId}`}
-        className={`relative transition-all duration-200 z-50 ${
-          isHovered ? 'h-16' : 'h-4'
+        className={`transition-all duration-200 ${
+          isHovered ? 'h-16 z-[9999]' : 'h-8 z-[9999]'
         }`}
-        style={{pointerEvents: 'auto'}}
+        style={{
+          pointerEvents: 'auto',
+          position: 'relative',
+          marginTop: isHovered ? '-8px' : '-4px',
+          marginBottom: isHovered ? '-8px' : '-4px'
+        }}
         onDragOver={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -915,13 +920,14 @@ const App = () => {
     return (
       <div
         key={pathStr}
-        className={`relative group transition-all duration-150 ease-in-out pointer-events-none ${
+        className={`group transition-all duration-150 ease-in-out pointer-events-none ${
           isSelected ? 'ring-2 ring-blue-500 ring-offset-2 bg-blue-50' : ''
         }`}
         style={{
           minHeight: element.children ? '40px' : 'auto',
           overflow: 'visible',
-          opacity: draggedItem && JSON.stringify(draggedItem) === JSON.stringify(currentPath) ? '0.4' : '1'
+          opacity: draggedItem && JSON.stringify(draggedItem) === JSON.stringify(currentPath) ? '0.4' : '1',
+          position: 'relative'
         }}
       >
         {/* Element controls overlay - Single handle or breadcrumb */}

@@ -391,6 +391,13 @@ const App = () => {
       if (zone === 'inside') {
         // Add inside target
         const target = getElementByPath(newStructure, targetPath);
+        if (!target) {
+          console.error('Target element not found');
+          setDraggedElementType(null);
+          setDropTarget(null);
+          setDropZone(null);
+          return;
+        }
         if (target.children) {
           target.children.push(newElement);
         }
@@ -401,9 +408,14 @@ const App = () => {
         } else {
           const targetParentPath = targetPath.slice(0, -1);
           const targetParent = getElementByPath(newStructure, targetParentPath);
-          if (targetParent.children) {
-            targetParent.children.splice(targetPath[targetPath.length - 1], 0, newElement);
+          if (!targetParent || !targetParent.children) {
+            console.error('Target parent not found or has no children');
+            setDraggedElementType(null);
+            setDropTarget(null);
+            setDropZone(null);
+            return;
           }
+          targetParent.children.splice(targetPath[targetPath.length - 1], 0, newElement);
         }
       } else {
         // Add after target
@@ -412,9 +424,14 @@ const App = () => {
         } else {
           const targetParentPath = targetPath.slice(0, -1);
           const targetParent = getElementByPath(newStructure, targetParentPath);
-          if (targetParent.children) {
-            targetParent.children.splice(targetPath[targetPath.length - 1] + 1, 0, newElement);
+          if (!targetParent || !targetParent.children) {
+            console.error('Target parent not found or has no children');
+            setDraggedElementType(null);
+            setDropTarget(null);
+            setDropZone(null);
+            return;
           }
+          targetParent.children.splice(targetPath[targetPath.length - 1] + 1, 0, newElement);
         }
       }
 
@@ -436,7 +453,15 @@ const App = () => {
     const newStructure = [...structure];
 
     // Get dragged element
-    const draggedElement = JSON.parse(JSON.stringify(getElementByPath(newStructure, draggedItem)));
+    const draggedElement = getElementByPath(newStructure, draggedItem);
+    if (!draggedElement) {
+      console.error('Dragged element not found');
+      setDraggedItem(null);
+      setDropTarget(null);
+      setDropZone(null);
+      return;
+    }
+    const draggedElementCopy = JSON.parse(JSON.stringify(draggedElement));
 
     // Remove from old position
     if (draggedItem.length === 1) {
@@ -444,6 +469,13 @@ const App = () => {
     } else {
       const dragParentPath = draggedItem.slice(0, -1);
       const dragParent = getElementByPath(newStructure, dragParentPath);
+      if (!dragParent || !dragParent.children) {
+        console.error('Drag parent not found or has no children');
+        setDraggedItem(null);
+        setDropTarget(null);
+        setDropZone(null);
+        return;
+      }
       dragParent.children.splice(draggedItem[draggedItem.length - 1], 1);
     }
 
@@ -459,30 +491,47 @@ const App = () => {
     if (zone === 'inside') {
       // Add inside target
       const target = getElementByPath(newStructure, adjustedTargetPath);
+      if (!target) {
+        console.error('Target element not found');
+        setDraggedItem(null);
+        setDropTarget(null);
+        setDropZone(null);
+        return;
+      }
       if (target.children) {
-        target.children.push(draggedElement);
+        target.children.push(draggedElementCopy);
       }
     } else if (zone === 'before') {
       // Add before target
       if (adjustedTargetPath.length === 1) {
-        newStructure.splice(adjustedTargetPath[0], 0, draggedElement);
+        newStructure.splice(adjustedTargetPath[0], 0, draggedElementCopy);
       } else {
         const targetParentPath = adjustedTargetPath.slice(0, -1);
         const targetParent = getElementByPath(newStructure, targetParentPath);
-        if (targetParent.children) {
-          targetParent.children.splice(adjustedTargetPath[adjustedTargetPath.length - 1], 0, draggedElement);
+        if (!targetParent || !targetParent.children) {
+          console.error('Target parent not found or has no children');
+          setDraggedItem(null);
+          setDropTarget(null);
+          setDropZone(null);
+          return;
         }
+        targetParent.children.splice(adjustedTargetPath[adjustedTargetPath.length - 1], 0, draggedElementCopy);
       }
     } else {
       // Add after target
       if (adjustedTargetPath.length === 1) {
-        newStructure.splice(adjustedTargetPath[0] + 1, 0, draggedElement);
+        newStructure.splice(adjustedTargetPath[0] + 1, 0, draggedElementCopy);
       } else {
         const targetParentPath = adjustedTargetPath.slice(0, -1);
         const targetParent = getElementByPath(newStructure, targetParentPath);
-        if (targetParent.children) {
-          targetParent.children.splice(adjustedTargetPath[adjustedTargetPath.length - 1] + 1, 0, draggedElement);
+        if (!targetParent || !targetParent.children) {
+          console.error('Target parent not found or has no children');
+          setDraggedItem(null);
+          setDropTarget(null);
+          setDropZone(null);
+          return;
         }
+        targetParent.children.splice(adjustedTargetPath[adjustedTargetPath.length - 1] + 1, 0, draggedElementCopy);
       }
     }
 

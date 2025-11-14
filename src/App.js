@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Plus, Trash2, Copy, Download, Upload, Eye, Code, Settings, ChevronDown, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Trash2, Copy, Download, Upload, Eye, Code, Settings, ChevronDown, ChevronRight, GripVertical, X } from 'lucide-react';
 
 const App = () => {
   const [structure, setStructure] = useState([]);
@@ -296,8 +296,6 @@ const App = () => {
     setDraggedItem(path);
     setDraggedElementType(null);
     e.dataTransfer.effectAllowed = 'move';
-    // Add visual feedback
-    e.currentTarget.style.opacity = '0.5';
   };
 
   // Drag start for new elements from left panel
@@ -340,19 +338,28 @@ const App = () => {
     }
 
     const hasChildren = element.children !== undefined;
+    const isEmpty = hasChildren && element.children.length === 0;
+
+    // Use fixed pixel zones for better predictability
+    const EDGE_ZONE_SIZE = 30; // pixels for before/after zones
 
     if (hasChildren) {
-      // For containers: divide into 3 zones with larger before/after zones
-      // before: first 35%, inside: middle 30%, after: last 35%
-      if (y < height * 0.35) {
-        setDropZone('before');
-      } else if (y > height * 0.65) {
-        setDropZone('after');
-      } else {
+      // For empty containers: entire area is 'inside' zone for easier dropping
+      if (isEmpty) {
         setDropZone('inside');
+      } else {
+        // For non-empty containers: use fixed pixel zones at edges
+        // This prevents huge before/after zones when container has lots of content
+        if (y < EDGE_ZONE_SIZE) {
+          setDropZone('before');
+        } else if (y > height - EDGE_ZONE_SIZE) {
+          setDropZone('after');
+        } else {
+          setDropZone('inside');
+        }
       }
     } else {
-      // For non-containers: divide into 2 zones
+      // For non-containers: divide into 2 zones (50/50)
       if (y < height * 0.5) {
         setDropZone('before');
       } else {
@@ -366,8 +373,16 @@ const App = () => {
   const handleDragLeave = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    // Clear drop target when leaving
-    if (e.target === e.currentTarget) {
+
+    // Get the element we're leaving
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX;
+    const y = e.clientY;
+
+    // Check if mouse is actually outside the element bounds
+    const isOutside = x < rect.left || x > rect.right || y < rect.top || y > rect.bottom;
+
+    if (isOutside) {
       setDropTarget(null);
       setDropZone(null);
     }
@@ -654,6 +669,34 @@ const App = () => {
     const hasChildren = element.children !== undefined;
     const canAcceptDrop = draggedItem || draggedElementType;
 
+    // Build breadcrumb path for hierarchical handles
+    const buildBreadcrumb = () => {
+      const breadcrumb = [];
+      let currentStructure = structure;
+
+      for (let i = 0; i < currentPath.length; i++) {
+        const index = currentPath[i];
+        const elem = currentStructure[index];
+        if (elem) {
+          breadcrumb.push({
+            element: elem,
+            path: currentPath.slice(0, i + 1),
+            label: elem.type
+          });
+          if (elem.children) {
+            currentStructure = elem.children;
+          }
+        }
+      }
+
+      return breadcrumb;
+    };
+
+    const breadcrumb = buildBreadcrumb();
+
+    // Show breadcrumb only when nested inside another element (not for top-level)
+    const shouldShowBreadcrumb = breadcrumb.length > 1;
+
     // Inline styles from element.styles
     const inlineStyles = {};
     if (element.styles) {
@@ -683,63 +726,135 @@ const App = () => {
     return (
       <div
         key={pathStr}
-        draggable
-        onDragStart={(e) => handleDragStart(e, currentPath)}
         onDragOver={(e) => handleDragOver(e, currentPath)}
         onDragLeave={handleDragLeave}
         onDrop={(e) => handleDrop(e, currentPath)}
-        onDragEnd={(e) => {
-          // Restore opacity on drag end
-          e.currentTarget.style.opacity = '1';
-          setDraggedItem(null);
-          setDropTarget(null);
-          setDropZone(null);
-        }}
         onClick={(e) => {
           e.stopPropagation();
           setSelectedElement({ element, path: currentPath });
         }}
-        className={`relative group transition-all cursor-move ${
-          isSelected ? 'ring-2 ring-blue-500 ring-offset-2' : ''
+        className={`relative group transition-all duration-200 ease-in-out ${
+          isSelected ? 'ring-2 ring-blue-500 ring-offset-2 bg-blue-50' : ''
         } ${
-          canAcceptDrop && !isDraggedOver ? 'hover:ring-1 hover:ring-gray-300 hover:shadow-sm' : ''
+          canAcceptDrop && !isDraggedOver ? 'hover:ring-1 hover:ring-gray-300 hover:shadow-sm hover:bg-gray-50' : ''
         } ${
-          isDraggedOver ? 'shadow-lg' : ''
+          isDraggedOver ? 'shadow-xl scale-[1.02]' : ''
         }`}
         style={{
           minHeight: element.children ? '40px' : 'auto',
-          marginBottom: isDraggedOver && dropZone === 'after' ? '12px' : '0',
-          marginTop: isDraggedOver && dropZone === 'before' ? '12px' : '0',
+          marginBottom: isDraggedOver && dropZone === 'after' ? '16px' : '0',
+          marginTop: isDraggedOver && dropZone === 'before' ? '16px' : '0',
           overflow: 'visible'
         }}
       >
-        {/* Element label overlay */}
-        <div className="absolute top-0 left-0 opacity-0 group-hover:opacity-100 bg-blue-500 text-white text-xs px-2 py-0.5 rounded-br z-20 transition-opacity shadow-lg">
-          {element.type}
-          {hasChildren && ' (container)'}
+        {/* Element controls overlay - Single handle or breadcrumb */}
+        <div className="absolute top-0 left-0 right-0 opacity-30 group-hover:opacity-100 z-20 transition-opacity flex items-center justify-between gap-2 pointer-events-none">
+          {/* Left side - Breadcrumb handles (only when nested non-container) or single handle */}
+          <div className="flex items-center gap-0.5 pointer-events-auto">
+            {shouldShowBreadcrumb ? (
+              // Show breadcrumb for nested elements where handles might overlap
+              breadcrumb.map((crumb, idx) => (
+                <div
+                  key={crumb.path.join('-')}
+                  data-drag-handle
+                  draggable
+                  onDragStart={(e) => {
+                    e.stopPropagation();
+                    handleDragStart(e, crumb.path);
+                  }}
+                  onDragEnd={(e) => {
+                    e.stopPropagation();
+                    setDraggedItem(null);
+                    setDropTarget(null);
+                    setDropZone(null);
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedElement({ element: crumb.element, path: crumb.path });
+                  }}
+                  className={`flex items-center gap-1 px-2 py-1 text-white text-xs font-semibold select-none cursor-grab active:cursor-grabbing transition-all ${
+                    idx === breadcrumb.length - 1
+                      ? 'bg-blue-600/95 backdrop-blur-sm rounded-br shadow-md' // Current element
+                      : 'bg-gray-600/90 backdrop-blur-sm hover:bg-gray-700/90' // Parent elements
+                  } ${idx === 0 ? 'rounded-tl' : ''}`}
+                  title={`Drag ${crumb.label}${crumb.element.children !== undefined ? ' (container)' : ''}`}
+                >
+                  <GripVertical size={12} />
+                  <span>{crumb.label}</span>
+                  {idx < breadcrumb.length - 1 && <span className="opacity-50">/</span>}
+                </div>
+              ))
+            ) : (
+              // Show single handle for containers and top-level elements
+              <div
+                data-drag-handle
+                draggable
+                onDragStart={(e) => {
+                  e.stopPropagation();
+                  handleDragStart(e, currentPath);
+                }}
+                onDragEnd={(e) => {
+                  e.stopPropagation();
+                  setDraggedItem(null);
+                  setDropTarget(null);
+                  setDropZone(null);
+                }}
+                className="flex items-center gap-1 px-2 py-1 bg-blue-600/95 backdrop-blur-sm rounded-tl rounded-br shadow-md text-white text-xs font-semibold select-none cursor-grab active:cursor-grabbing"
+                title={`Drag ${element.type}${hasChildren ? ' (container)' : ''}`}
+              >
+                <GripVertical size={12} />
+                <span>{element.type}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Right side - Quick actions - visible on hover */}
+          <div className="flex items-center gap-1 bg-white/95 backdrop-blur-sm rounded-bl shadow-md overflow-hidden pointer-events-auto">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                copyElement(currentPath);
+              }}
+              className="px-2 py-1 hover:bg-blue-50 text-blue-600 transition-colors"
+              title="Duplicate (Ctrl+D)"
+            >
+              <Copy size={12} />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                deleteElement(currentPath);
+              }}
+              className="px-2 py-1 hover:bg-red-50 text-red-600 transition-colors"
+              title="Delete (Del)"
+            >
+              <Trash2 size={12} />
+            </button>
+          </div>
         </div>
 
-        {/* Drop indicators based on zone */}
+        {/* Drop indicators based on zone - Improved version */}
         {isDraggedOver && dropZone === 'before' && (
-          <div className="absolute -top-1 left-0 right-0 h-2 bg-blue-500 z-30 shadow-lg rounded-full">
-            <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs px-3 py-1.5 rounded-full font-semibold shadow-xl whitespace-nowrap border-2 border-blue-300">
-              ↑ Вставить перед
+          <div className="absolute -top-2 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 via-blue-500 to-blue-400 z-30 shadow-lg animate-pulse">
+            <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-gradient-to-r from-blue-600 to-blue-500 text-white text-xs px-4 py-1.5 rounded-full font-semibold shadow-xl whitespace-nowrap border-2 border-blue-300 flex items-center gap-1">
+              <span className="text-base">↑</span> Вставить перед
             </div>
           </div>
         )}
 
         {isDraggedOver && dropZone === 'after' && (
-          <div className="absolute -bottom-1 left-0 right-0 h-2 bg-blue-500 z-30 shadow-lg rounded-full">
-            <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs px-3 py-1.5 rounded-full font-semibold shadow-xl whitespace-nowrap border-2 border-blue-300">
-              ↓ Вставить после
+          <div className="absolute -bottom-2 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 via-blue-500 to-blue-400 z-30 shadow-lg animate-pulse">
+            <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-gradient-to-r from-blue-600 to-blue-500 text-white text-xs px-4 py-1.5 rounded-full font-semibold shadow-xl whitespace-nowrap border-2 border-blue-300 flex items-center gap-1">
+              <span className="text-base">↓</span> Вставить после
             </div>
           </div>
         )}
 
         {isDraggedOver && dropZone === 'inside' && (
-          <div className="absolute inset-0 bg-gradient-to-br from-green-100 to-emerald-100 bg-opacity-90 border-4 border-dashed border-green-500 rounded-lg z-20 flex items-center justify-center pointer-events-none backdrop-blur-sm">
-            <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white text-sm px-5 py-2.5 rounded-full font-bold shadow-xl animate-pulse border-2 border-green-300">
-              📦 Вставить внутрь контейнера
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-100 via-green-100 to-teal-100 border-4 border-dashed border-emerald-500 rounded-lg z-30 flex items-center justify-center pointer-events-none backdrop-blur-sm animate-pulse">
+            <div className="bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 text-white text-sm px-6 py-3 rounded-full font-bold shadow-2xl border-2 border-emerald-300 flex items-center gap-2">
+              <span className="text-lg">📦</span>
+              <span>Вставить внутрь контейнера</span>
             </div>
           </div>
         )}
@@ -772,10 +887,10 @@ const App = () => {
               renderVisualElement(child, [...currentPath, index])
             )}
             {element.children && element.children.length === 0 && (
-              <div className="text-gray-400 text-sm py-8 text-center border-2 border-dashed border-gray-300 rounded m-2 hover:bg-gray-100 hover:border-gray-400 transition-colors">
+              <div className="text-gray-400 text-sm py-8 text-center border-2 border-dashed border-gray-300 rounded m-2 hover:bg-gray-100 hover:border-gray-400 transition-colors pointer-events-none select-none">
                 <div className="text-lg mb-1">📦</div>
-                <div>Перетащите элементы сюда</div>
-                <div className="text-xs mt-1">или используйте кнопку +</div>
+                <div className="font-medium">Перетащите элементы сюда</div>
+                <div className="text-xs mt-1 opacity-75">или используйте кнопку +</div>
               </div>
             )}
           </ElementTag>
@@ -882,6 +997,26 @@ const App = () => {
       );
     });
   };
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Delete selected element with Delete or Backspace key
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedElement && !e.target.matches('input, textarea')) {
+        e.preventDefault();
+        deleteElement(selectedElement.path);
+      }
+
+      // Duplicate selected element with Ctrl+D or Cmd+D
+      if ((e.ctrlKey || e.metaKey) && e.key === 'd' && selectedElement && !e.target.matches('input, textarea')) {
+        e.preventDefault();
+        copyElement(selectedElement.path);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedElement]);
 
   return (
     <div className="h-screen flex flex-col bg-gray-100">
@@ -1699,17 +1834,23 @@ const App = () => {
 
                 {/* Preview Container with dynamic width */}
                 <div
-                  className={`bg-white rounded shadow-lg p-8 mx-auto transition-all duration-300 ${
-                    previewMode === 'desktop' ? 'max-w-full' :
-                    previewMode === 'tablet' ? 'w-[768px]' :
-                    'w-[375px]'
-                  }`}
+                  className="bg-white rounded shadow-lg p-8 mx-auto transition-all duration-500 ease-in-out"
+                  style={{
+                    maxWidth: previewMode === 'desktop' ? '100%' :
+                              previewMode === 'tablet' ? '768px' : '375px'
+                  }}
                 >
                   <div className="mb-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 border border-purple-200">
                     <h2 className="text-xl font-bold mb-2 text-purple-900">🎨 Visual Editor</h2>
-                    <p className="text-sm text-purple-700">
-                      Перетаскивайте элементы для изменения порядка. Наведите курсор для отображения типа элемента. Кликните для выбора и редактирования.
-                    </p>
+                    <div className="text-sm text-purple-700 space-y-2">
+                      <p className="font-medium">✨ Улучшенный редактор с поддержкой drag & drop:</p>
+                      <ul className="list-disc list-inside space-y-1 text-xs ml-2">
+                        <li>Перетаскивайте элементы используя <strong>drag handle</strong> (⋮⋮)</li>
+                        <li>Быстрые действия на hover: <strong>дублировать</strong> и <strong>удалить</strong></li>
+                        <li>Клавиатурные шорткаты: <kbd className="px-1 py-0.5 bg-purple-200 rounded text-purple-900 font-mono">Del</kbd> - удалить, <kbd className="px-1 py-0.5 bg-purple-200 rounded text-purple-900 font-mono">Ctrl+D</kbd> - дублировать</li>
+                        <li>Точные зоны вставки: перед, после или внутрь контейнера</li>
+                      </ul>
+                    </div>
                   </div>
 
                   {structure.length === 0 ? (

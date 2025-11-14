@@ -340,43 +340,37 @@ const App = () => {
     const hasChildren = element.children !== undefined;
     const isEmpty = hasChildren && element.children.length === 0;
 
-    // Improved drop zone calculation for better UX (like Elementor)
-    // Use dynamic zones based on element height
-    const MIN_EDGE_SIZE = 20; // minimum pixels for edge zones
-    const MAX_EDGE_SIZE = 60; // maximum pixels for edge zones
-
-    // Calculate edge size as 20% of height, but clamp between min and max
-    const dynamicEdgeSize = Math.max(MIN_EDGE_SIZE, Math.min(MAX_EDGE_SIZE, height * 0.2));
-
+    // Simplified drop zone logic - clear and predictable (like Elementor/Puck)
     if (hasChildren) {
-      // For empty containers: entire area is 'inside' zone for easier dropping
+      // For empty containers: entire area is 'inside' zone
       if (isEmpty) {
         setDropZone('inside');
       } else {
-        // For non-empty containers: use dynamic zones
-        // Prioritize before/after for easier extraction and placement
-        if (y < dynamicEdgeSize) {
+        // For non-empty containers: percentage-based with minimum pixel thresholds
+        // This ensures even small containers have usable before/after zones
+        const MIN_ZONE_SIZE = 25; // minimum pixels for a zone
+
+        // Calculate zone sizes: prefer 30/40/30 split, but ensure minimum sizes
+        let topZoneSize = Math.max(MIN_ZONE_SIZE, height * 0.30);
+        let bottomZoneSize = Math.max(MIN_ZONE_SIZE, height * 0.30);
+
+        // If element is very small, adjust percentages
+        if (height < 100) {
+          // For small elements, use larger percentage for before/after
+          topZoneSize = Math.max(MIN_ZONE_SIZE, height * 0.35);
+          bottomZoneSize = Math.max(MIN_ZONE_SIZE, height * 0.35);
+        }
+
+        if (y < topZoneSize) {
           setDropZone('before');
-        } else if (y > height - dynamicEdgeSize) {
+        } else if (y > height - bottomZoneSize) {
           setDropZone('after');
         } else {
-          // In the middle area, check if we're closer to edges
-          // This makes it easier to place elements before/after
-          const distanceFromTop = y;
-          const distanceFromBottom = height - y;
-          const threshold = height * 0.35; // 35% threshold for inside zone
-
-          if (distanceFromTop < threshold && distanceFromTop >= dynamicEdgeSize) {
-            setDropZone('before');
-          } else if (distanceFromBottom < threshold && distanceFromBottom >= dynamicEdgeSize) {
-            setDropZone('after');
-          } else {
-            setDropZone('inside');
-          }
+          setDropZone('inside');
         }
       }
     } else {
-      // For non-containers: divide into 2 zones (50/50)
+      // For non-containers: simple 50/50 split
       if (y < height * 0.5) {
         setDropZone('before');
       } else {
@@ -847,42 +841,53 @@ const App = () => {
           </div>
         </div>
 
-        {/* Drop indicators based on zone - Elementor-style */}
+        {/* Drop indicators based on zone - Elementor-style with improved visibility */}
         {isDraggedOver && dropZone === 'before' && (
-          <div className="absolute -top-1 left-0 right-0 z-30 pointer-events-none">
-            {/* Insertion line */}
-            <div className="h-0.5 bg-blue-500 shadow-lg relative">
+          <div className="absolute -top-2 left-0 right-0 z-40 pointer-events-none">
+            {/* Insertion line with animation */}
+            <div className="h-1 bg-blue-600 shadow-2xl relative animate-pulse">
               {/* Circles at the ends */}
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-blue-500 rounded-full"></div>
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-blue-500 rounded-full"></div>
+              <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-3 h-3 bg-blue-600 rounded-full shadow-lg"></div>
+              <div className="absolute -right-1 top-1/2 -translate-y-1/2 w-3 h-3 bg-blue-600 rounded-full shadow-lg"></div>
+              {/* Center indicator */}
+              <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 w-4 h-4 bg-blue-600 rounded-full shadow-lg"></div>
             </div>
-            {/* Label */}
-            <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-xs px-3 py-1 rounded font-medium shadow-lg whitespace-nowrap">
-              Вставить сюда
+            {/* Label with icon */}
+            <div className="absolute -top-9 left-1/2 -translate-x-1/2 bg-gradient-to-r from-blue-600 to-blue-500 text-white text-sm px-4 py-2 rounded-lg font-semibold shadow-2xl whitespace-nowrap flex items-center gap-2 border-2 border-blue-400">
+              <span className="text-lg">↑</span>
+              <span>Вставить выше</span>
             </div>
           </div>
         )}
 
         {isDraggedOver && dropZone === 'after' && (
-          <div className="absolute -bottom-1 left-0 right-0 z-30 pointer-events-none">
-            {/* Insertion line */}
-            <div className="h-0.5 bg-blue-500 shadow-lg relative">
+          <div className="absolute -bottom-2 left-0 right-0 z-40 pointer-events-none">
+            {/* Insertion line with animation */}
+            <div className="h-1 bg-blue-600 shadow-2xl relative animate-pulse">
               {/* Circles at the ends */}
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-blue-500 rounded-full"></div>
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-blue-500 rounded-full"></div>
+              <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-3 h-3 bg-blue-600 rounded-full shadow-lg"></div>
+              <div className="absolute -right-1 top-1/2 -translate-y-1/2 w-3 h-3 bg-blue-600 rounded-full shadow-lg"></div>
+              {/* Center indicator */}
+              <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 w-4 h-4 bg-blue-600 rounded-full shadow-lg"></div>
             </div>
-            {/* Label */}
-            <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-xs px-3 py-1 rounded font-medium shadow-lg whitespace-nowrap">
-              Вставить сюда
+            {/* Label with icon */}
+            <div className="absolute -bottom-9 left-1/2 -translate-x-1/2 bg-gradient-to-r from-blue-600 to-blue-500 text-white text-sm px-4 py-2 rounded-lg font-semibold shadow-2xl whitespace-nowrap flex items-center gap-2 border-2 border-blue-400">
+              <span className="text-lg">↓</span>
+              <span>Вставить ниже</span>
             </div>
           </div>
         )}
 
         {isDraggedOver && dropZone === 'inside' && (
-          <div className="absolute inset-0 border-2 border-dashed border-blue-500 bg-blue-50/50 rounded-lg z-30 flex items-center justify-center pointer-events-none">
-            <div className="bg-blue-500 text-white text-xs px-4 py-2 rounded-lg font-medium shadow-lg flex items-center gap-2">
-              <span>📦</span>
-              <span>Вставить внутрь</span>
+          <div className="absolute inset-0 z-40 pointer-events-none">
+            {/* Border overlay with animation */}
+            <div className="absolute inset-0 border-4 border-dashed border-green-500 bg-green-50/30 rounded-lg animate-pulse"></div>
+            {/* Inner glow */}
+            <div className="absolute inset-0 bg-gradient-to-br from-green-100/40 via-transparent to-green-100/40 rounded-lg"></div>
+            {/* Label */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gradient-to-r from-green-600 to-green-500 text-white text-sm px-6 py-3 rounded-xl font-semibold shadow-2xl flex items-center gap-3 border-2 border-green-400">
+              <span className="text-2xl">📦</span>
+              <span>Вставить внутрь контейнера</span>
             </div>
           </div>
         )}

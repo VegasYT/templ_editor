@@ -9,6 +9,7 @@ const JsonEditorModal = ({ isOpen, onClose, structure, editableStyles, defaultDa
     if (isOpen) {
       const jsonData = {
         structure,
+        editableElements: Object.keys(defaultData),
         editableStyles,
         defaultData
       };
@@ -24,6 +25,10 @@ const JsonEditorModal = ({ isOpen, onClose, structure, editableStyles, defaultDa
       // Validate structure
       if (!parsed.structure || !Array.isArray(parsed.structure)) {
         throw new Error('Invalid structure: must be an array');
+      }
+
+      if (parsed.editableElements !== undefined && !Array.isArray(parsed.editableElements)) {
+        throw new Error('Invalid editableElements: must be an array');
       }
 
       if (!parsed.editableStyles || typeof parsed.editableStyles !== 'object') {
@@ -83,7 +88,7 @@ const JsonEditorModal = ({ isOpen, onClose, structure, editableStyles, defaultDa
         {/* Footer */}
         <div className="flex items-center justify-between p-4 border-t bg-gray-50">
           <div className="text-sm text-gray-600">
-            Edit the JSON structure, styles, and data
+            Edit structure, editableElements, editableStyles, and defaultData
           </div>
           <div className="flex gap-2">
             <button

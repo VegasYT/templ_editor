@@ -539,9 +539,10 @@ const App = () => {
           const config = editableStyles[styleKey];
           let value = previewStyles[styleKey] !== undefined ? previewStyles[styleKey] : config.default;
 
-          // Add unit for number/range types
-          if ((config.type === 'number' || config.type === 'range') && config.unit) {
-            value = `${value}${config.unit}`;
+          // Add unit for number/range types (with fallback to 'px' if unit is missing)
+          if (config.type === 'number' || config.type === 'range') {
+            const unit = config.unit || 'px';
+            value = `${value}${unit}`;
           }
 
           inlineStyles[cssProp] = value;
@@ -1262,9 +1263,20 @@ const App = () => {
                                 <select
                                   value={config.type}
                                   onChange={(e) => {
+                                    const newType = e.target.value;
+                                    const updatedConfig = { ...config, type: newType };
+
+                                    // Auto-set unit to 'px' when changing to number/range if not set
+                                    if ((newType === 'number' || newType === 'range') && !config.unit) {
+                                      updatedConfig.unit = 'px';
+                                      updatedConfig.min = config.min || 0;
+                                      updatedConfig.max = config.max || 100;
+                                      updatedConfig.step = config.step || 1;
+                                    }
+
                                     setEditableStyles({
                                       ...editableStyles,
-                                      [key]: { ...config, type: e.target.value }
+                                      [key]: updatedConfig
                                     });
                                   }}
                                   className="w-full px-2 py-1 border rounded text-xs"
@@ -1360,6 +1372,15 @@ const App = () => {
                                       <input
                                         type="text"
                                         value={config.unit || 'px'}
+                                        onFocus={(e) => {
+                                          // Auto-set unit to 'px' on focus if not set
+                                          if (!config.unit) {
+                                            setEditableStyles({
+                                              ...editableStyles,
+                                              [key]: { ...config, unit: 'px' }
+                                            });
+                                          }
+                                        }}
                                         onChange={(e) => {
                                           setEditableStyles({
                                             ...editableStyles,

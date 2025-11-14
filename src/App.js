@@ -14,6 +14,7 @@ const App = () => {
   const [dropTarget, setDropTarget] = useState(null);
   const [draggedElementType, setDraggedElementType] = useState(null); // For dragging from left panel
   const [previewStyles, setPreviewStyles] = useState({}); // For live preview of editable styles
+  const [previewMode, setPreviewMode] = useState('desktop'); // desktop, tablet, mobile
 
   // Базовые элементы для добавления
   const elementTypes = [
@@ -633,7 +634,7 @@ const App = () => {
             renderVisualElement(child, [...currentPath, index])
           )}
           {element.children && element.children.length === 0 && (
-            <div className="text-gray-400 text-sm py-8 text-center border-2 border-dashed border-gray-300 rounded m-2 bg-gray-50 hover:bg-gray-100 hover:border-gray-400 transition-colors">
+            <div className="text-gray-400 text-sm py-8 text-center border-2 border-dashed border-gray-300 rounded m-2 hover:bg-gray-100 hover:border-gray-400 transition-colors">
               <div className="text-lg mb-1">📦</div>
               <div>Перетащите элементы сюда</div>
               <div className="text-xs mt-1">или используйте кнопку +</div>
@@ -1536,42 +1537,89 @@ const App = () => {
 
             {/* Center - Visual Canvas */}
             <div className="flex-1 bg-gray-100 p-4 overflow-auto">
-              <div className="bg-white rounded shadow-lg p-8 max-w-6xl mx-auto">
-                <div className="mb-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 border border-purple-200">
-                  <h2 className="text-xl font-bold mb-2 text-purple-900">🎨 Visual Editor</h2>
-                  <p className="text-sm text-purple-700">
-                    Перетаскивайте элементы для изменения порядка. Наведите курсор для отображения типа элемента. Кликните для выбора и редактирования.
-                  </p>
+              <div className="mx-auto">
+                {/* Preview Mode Switcher */}
+                <div className="mb-4 flex items-center justify-center gap-3 bg-white rounded-lg p-3 shadow-md max-w-fit mx-auto">
+                  <span className="text-sm font-semibold text-gray-700">Preview:</span>
+                  <button
+                    onClick={() => setPreviewMode('desktop')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                      previewMode === 'desktop'
+                        ? 'bg-blue-500 text-white shadow-md'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    🖥️ Desktop
+                    <span className="text-xs ml-1 opacity-75">(100%)</span>
+                  </button>
+                  <button
+                    onClick={() => setPreviewMode('tablet')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                      previewMode === 'tablet'
+                        ? 'bg-blue-500 text-white shadow-md'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    📱 Tablet
+                    <span className="text-xs ml-1 opacity-75">(768px)</span>
+                  </button>
+                  <button
+                    onClick={() => setPreviewMode('mobile')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                      previewMode === 'mobile'
+                        ? 'bg-blue-500 text-white shadow-md'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    📱 Mobile
+                    <span className="text-xs ml-1 opacity-75">(375px)</span>
+                  </button>
                 </div>
 
-                {structure.length === 0 ? (
-                  <div
-                    className="border-2 border-dashed border-gray-300 rounded p-16 text-center bg-gray-50 hover:border-blue-400 hover:bg-blue-50 transition-colors"
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.currentTarget.classList.add('border-green-500', 'bg-green-50');
-                    }}
-                    onDragLeave={(e) => {
-                      e.currentTarget.classList.remove('border-green-500', 'bg-green-50');
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      e.currentTarget.classList.remove('border-green-500', 'bg-green-50');
-                      if (draggedElementType) {
-                        addElement(draggedElementType);
-                        setDraggedElementType(null);
-                      }
-                    }}
-                  >
-                    <div className="text-4xl mb-4">📦</div>
-                    <p className="text-gray-500 text-lg mb-2">Начните создавать</p>
-                    <p className="text-gray-400 text-sm">Перетащите элементы из левой панели или нажмите на них</p>
+                {/* Preview Container with dynamic width */}
+                <div
+                  className={`bg-white rounded shadow-lg p-8 mx-auto transition-all duration-300 ${
+                    previewMode === 'desktop' ? 'max-w-full' :
+                    previewMode === 'tablet' ? 'w-[768px]' :
+                    'w-[375px]'
+                  }`}
+                >
+                  <div className="mb-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 border border-purple-200">
+                    <h2 className="text-xl font-bold mb-2 text-purple-900">🎨 Visual Editor</h2>
+                    <p className="text-sm text-purple-700">
+                      Перетаскивайте элементы для изменения порядка. Наведите курсор для отображения типа элемента. Кликните для выбора и редактирования.
+                    </p>
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    {structure.map((element, index) => renderVisualElement(element, [index]))}
-                  </div>
-                )}
+
+                  {structure.length === 0 ? (
+                    <div
+                      className="border-2 border-dashed border-gray-300 rounded p-16 text-center bg-gray-50 hover:border-blue-400 hover:bg-blue-50 transition-colors"
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.currentTarget.classList.add('border-green-500', 'bg-green-50');
+                      }}
+                      onDragLeave={(e) => {
+                        e.currentTarget.classList.remove('border-green-500', 'bg-green-50');
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.currentTarget.classList.remove('border-green-500', 'bg-green-50');
+                        if (draggedElementType) {
+                          addElement(draggedElementType);
+                          setDraggedElementType(null);
+                        }
+                      }}
+                    >
+                      <div className="text-4xl mb-4">📦</div>
+                      <p className="text-gray-500 text-lg mb-2">Начните создавать</p>
+                      <p className="text-gray-400 text-sm">Перетащите элементы из левой панели или нажмите на них</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {structure.map((element, index) => renderVisualElement(element, [index]))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 

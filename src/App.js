@@ -340,16 +340,22 @@ const App = () => {
     }
 
     const hasChildren = element.children !== undefined;
+    const isEmpty = hasChildren && element.children.length === 0;
 
     if (hasChildren) {
-      // For containers: divide into 3 zones with larger before/after zones
-      // before: first 35%, inside: middle 30%, after: last 35%
-      if (y < height * 0.35) {
-        setDropZone('before');
-      } else if (y > height * 0.65) {
-        setDropZone('after');
-      } else {
+      // For empty containers: entire area is 'inside' zone for easier dropping
+      if (isEmpty) {
         setDropZone('inside');
+      } else {
+        // For non-empty containers: divide into 3 zones with generous 'inside' zone
+        // before: first 25%, inside: middle 50%, after: last 25%
+        if (y < height * 0.25) {
+          setDropZone('before');
+        } else if (y > height * 0.75) {
+          setDropZone('after');
+        } else {
+          setDropZone('inside');
+        }
       }
     } else {
       // For non-containers: divide into 2 zones
@@ -767,7 +773,7 @@ const App = () => {
         )}
 
         {isDraggedOver && dropZone === 'inside' && (
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-100 via-green-100 to-teal-100 border-4 border-dashed border-emerald-500 rounded-lg z-20 flex items-center justify-center pointer-events-none backdrop-blur-sm animate-pulse">
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-100 via-green-100 to-teal-100 border-4 border-dashed border-emerald-500 rounded-lg z-30 flex items-center justify-center pointer-events-none backdrop-blur-sm animate-pulse">
             <div className="bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 text-white text-sm px-6 py-3 rounded-full font-bold shadow-2xl border-2 border-emerald-300 flex items-center gap-2">
               <span className="text-lg">📦</span>
               <span>Вставить внутрь контейнера</span>
@@ -803,10 +809,10 @@ const App = () => {
               renderVisualElement(child, [...currentPath, index])
             )}
             {element.children && element.children.length === 0 && (
-              <div className="text-gray-400 text-sm py-8 text-center border-2 border-dashed border-gray-300 rounded m-2 hover:bg-gray-100 hover:border-gray-400 transition-colors">
+              <div className="text-gray-400 text-sm py-8 text-center border-2 border-dashed border-gray-300 rounded m-2 hover:bg-gray-100 hover:border-gray-400 transition-colors pointer-events-none select-none">
                 <div className="text-lg mb-1">📦</div>
-                <div>Перетащите элементы сюда</div>
-                <div className="text-xs mt-1">или используйте кнопку +</div>
+                <div className="font-medium">Перетащите элементы сюда</div>
+                <div className="text-xs mt-1 opacity-75">или используйте кнопку +</div>
               </div>
             )}
           </ElementTag>

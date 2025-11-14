@@ -12,6 +12,7 @@ const App = () => {
   const [collapsedNodes, setCollapsedNodes] = useState({});
   const [draggedItem, setDraggedItem] = useState(null);
   const [dropTarget, setDropTarget] = useState(null);
+  const [dropZone, setDropZone] = useState(null); // 'before', 'after', 'inside'
   const [draggedElementType, setDraggedElementType] = useState(null); // For dragging from left panel
   const [previewStyles, setPreviewStyles] = useState({}); // For live preview of editable styles
   const [previewMode, setPreviewMode] = useState('desktop'); // desktop, tablet, mobile
@@ -308,6 +309,33 @@ const App = () => {
   const handleDragOver = (e, path) => {
     e.preventDefault();
     e.stopPropagation();
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const height = rect.height;
+
+    // Determine drop zone based on cursor position
+    const element = getElementByPath(structure, path);
+    const hasChildren = element && element.children !== undefined;
+
+    if (hasChildren) {
+      // For containers: divide into 3 zones
+      if (y < height * 0.25) {
+        setDropZone('before');
+      } else if (y > height * 0.75) {
+        setDropZone('after');
+      } else {
+        setDropZone('inside');
+      }
+    } else {
+      // For non-containers: divide into 2 zones
+      if (y < height * 0.5) {
+        setDropZone('before');
+      } else {
+        setDropZone('after');
+      }
+    }
+
     setDropTarget(path);
   };
 
@@ -319,6 +347,8 @@ const App = () => {
   const handleDrop = (e, targetPath) => {
     e.preventDefault();
     e.stopPropagation();
+
+    const zone = dropZone || 'after';
 
     // If dropping a new element from left panel
     if (draggedElementType) {
@@ -342,26 +372,48 @@ const App = () => {
         });
       }
 
-      // Add to position after target
-      if (targetPath.length === 1) {
-        newStructure.splice(targetPath[0] + 1, 0, newElement);
+      // Add based on drop zone
+      if (zone === 'inside') {
+        // Add inside target
+        const target = getElementByPath(newStructure, targetPath);
+        if (target.children) {
+          target.children.push(newElement);
+        }
+      } else if (zone === 'before') {
+        // Add before target
+        if (targetPath.length === 1) {
+          newStructure.splice(targetPath[0], 0, newElement);
+        } else {
+          const targetParentPath = targetPath.slice(0, -1);
+          const targetParent = getElementByPath(newStructure, targetParentPath);
+          if (targetParent.children) {
+            targetParent.children.splice(targetPath[targetPath.length - 1], 0, newElement);
+          }
+        }
       } else {
-        const targetParentPath = targetPath.slice(0, -1);
-        const targetParent = getElementByPath(newStructure, targetParentPath);
-        if (targetParent.children) {
-          targetParent.children.splice(targetPath[targetPath.length - 1] + 1, 0, newElement);
+        // Add after target
+        if (targetPath.length === 1) {
+          newStructure.splice(targetPath[0] + 1, 0, newElement);
+        } else {
+          const targetParentPath = targetPath.slice(0, -1);
+          const targetParent = getElementByPath(newStructure, targetParentPath);
+          if (targetParent.children) {
+            targetParent.children.splice(targetPath[targetPath.length - 1] + 1, 0, newElement);
+          }
         }
       }
 
       setStructure(newStructure);
       setDraggedElementType(null);
       setDropTarget(null);
+      setDropZone(null);
       return;
     }
 
     if (!draggedItem || JSON.stringify(draggedItem) === JSON.stringify(targetPath)) {
       setDraggedItem(null);
       setDropTarget(null);
+      setDropZone(null);
       return;
     }
 
@@ -382,100 +434,49 @@ const App = () => {
 
     // Adjust target path if needed (if dragged from before target in same parent)
     let adjustedTargetPath = [...targetPath];
-    if (draggedItem.length === targetPath.length &&
+    if (zone === 'after' && draggedItem.length === targetPath.length &&
         draggedItem.slice(0, -1).every((v, i) => v === targetPath[i]) &&
         draggedItem[draggedItem.length - 1] < targetPath[targetPath.length - 1]) {
       adjustedTargetPath[adjustedTargetPath.length - 1]--;
     }
 
-    // Add to new position (as sibling after target)
-    if (adjustedTargetPath.length === 1) {
-      newStructure.splice(adjustedTargetPath[0] + 1, 0, draggedElement);
-    } else {
-      const targetParentPath = adjustedTargetPath.slice(0, -1);
-      const targetParent = getElementByPath(newStructure, targetParentPath);
-      if (targetParent.children) {
-        targetParent.children.splice(adjustedTargetPath[adjustedTargetPath.length - 1] + 1, 0, draggedElement);
-      }
-    }
-
-    setStructure(newStructure);
-    setDraggedItem(null);
-    setDropTarget(null);
-  };
-
-  const handleDropInside = (e, targetPath) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    const newStructure = [...structure];
-    const targetElement = getElementByPath(newStructure, targetPath);
-
-    // Check if target can have children
-    if (!targetElement.children && targetElement.children !== []) {
-      setDraggedItem(null);
-      setDraggedElementType(null);
-      setDropTarget(null);
-      return;
-    }
-
-    // If dropping a new element from left panel
-    if (draggedElementType) {
-      const containerTypes = ['container', 'div', 'grid', 'ul', 'ol', 'button', 'a'];
-      const needsDataKey = !['container', 'div', 'grid', 'br', 'hr', 'ul', 'ol'].includes(draggedElementType);
-
-      const newElement = {
-        type: draggedElementType,
-        className: getDefaultClasses(draggedElementType),
-        styles: {},
-        children: containerTypes.includes(draggedElementType) ? [] : undefined,
-        dataKey: needsDataKey ? `${draggedElementType}_${Date.now()}` : undefined,
-      };
-
-      // Add default data for media and text elements
-      if (needsDataKey && newElement.dataKey) {
-        setDefaultData({
-          ...defaultData,
-          [newElement.dataKey]: `Sample ${draggedElementType} text`
-        });
-      }
-
+    // Add to new position based on drop zone
+    if (zone === 'inside') {
       // Add inside target
-      const updatedTarget = getElementByPath(newStructure, targetPath);
-      updatedTarget.children.push(newElement);
-
-      setStructure(newStructure);
-      setDraggedElementType(null);
-      setDropTarget(null);
-      return;
-    }
-
-    if (!draggedItem) {
-      setDropTarget(null);
-      return;
-    }
-
-    // Move element from draggedItem path inside targetPath
-    // Get dragged element
-    const draggedElement = JSON.parse(JSON.stringify(getElementByPath(newStructure, draggedItem)));
-
-    // Remove from old position
-    if (draggedItem.length === 1) {
-      newStructure.splice(draggedItem[0], 1);
+      const target = getElementByPath(newStructure, adjustedTargetPath);
+      if (target.children) {
+        target.children.push(draggedElement);
+      }
+    } else if (zone === 'before') {
+      // Add before target
+      if (adjustedTargetPath.length === 1) {
+        newStructure.splice(adjustedTargetPath[0], 0, draggedElement);
+      } else {
+        const targetParentPath = adjustedTargetPath.slice(0, -1);
+        const targetParent = getElementByPath(newStructure, targetParentPath);
+        if (targetParent.children) {
+          targetParent.children.splice(adjustedTargetPath[adjustedTargetPath.length - 1], 0, draggedElement);
+        }
+      }
     } else {
-      const dragParentPath = draggedItem.slice(0, -1);
-      const dragParent = getElementByPath(newStructure, dragParentPath);
-      dragParent.children.splice(draggedItem[draggedItem.length - 1], 1);
+      // Add after target
+      if (adjustedTargetPath.length === 1) {
+        newStructure.splice(adjustedTargetPath[0] + 1, 0, draggedElement);
+      } else {
+        const targetParentPath = adjustedTargetPath.slice(0, -1);
+        const targetParent = getElementByPath(newStructure, targetParentPath);
+        if (targetParent.children) {
+          targetParent.children.splice(adjustedTargetPath[adjustedTargetPath.length - 1] + 1, 0, draggedElement);
+        }
+      }
     }
-
-    // Add inside target
-    const updatedTarget = getElementByPath(newStructure, targetPath);
-    updatedTarget.children.push(draggedElement);
 
     setStructure(newStructure);
     setDraggedItem(null);
     setDropTarget(null);
+    setDropZone(null);
   };
+
 
   // Экспорт JSON
   const exportJSON = () => {
@@ -528,7 +529,6 @@ const App = () => {
     const pathStr = currentPath.join('-');
     const isSelected = selectedElement && JSON.stringify(selectedElement.path) === JSON.stringify(currentPath);
     const isDraggedOver = dropTarget && JSON.stringify(dropTarget) === JSON.stringify(currentPath);
-    const isDropInsideTarget = dropTarget && JSON.stringify(dropTarget) === JSON.stringify([...currentPath, 'inside']);
     const hasChildren = element.children !== undefined;
     const canAcceptDrop = draggedItem || draggedElementType;
 
@@ -569,9 +569,7 @@ const App = () => {
         className={`relative group transition-all ${
           isSelected ? 'ring-2 ring-blue-500 ring-offset-2' : ''
         } ${
-          isDraggedOver ? 'ring-2 ring-amber-400 ring-offset-2 bg-amber-50' : ''
-        } ${
-          canAcceptDrop && !isDraggedOver && !isDropInsideTarget ? 'hover:ring-1 hover:ring-gray-300' : ''
+          canAcceptDrop && !isDraggedOver ? 'hover:ring-1 hover:ring-gray-300' : ''
         }`}
         style={{ minHeight: element.children ? '40px' : 'auto' }}
       >
@@ -581,38 +579,28 @@ const App = () => {
           {hasChildren && ' (container)'}
         </div>
 
-        {/* Drop as sibling indicator */}
-        {isDraggedOver && (
-          <div className="absolute inset-0 border-2 border-amber-500 bg-amber-100 bg-opacity-20 rounded pointer-events-none z-10 flex items-center justify-center">
-            <div className="bg-amber-500 text-white text-xs px-3 py-1 rounded-full font-semibold shadow-lg">
-              Drop here as sibling
+        {/* Drop indicators based on zone */}
+        {isDraggedOver && dropZone === 'before' && (
+          <div className="absolute top-0 left-0 right-0 h-1 bg-blue-500 z-30 shadow-lg">
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-xs px-3 py-1 rounded-full font-semibold shadow-lg whitespace-nowrap">
+              ↑ Вставить перед
             </div>
           </div>
         )}
 
-        {/* Drop zone indicator for containers */}
-        {hasChildren && canAcceptDrop && (
-          <div
-            onDragOver={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setDropTarget([...currentPath, 'inside']);
-            }}
-            onDrop={(e) => handleDropInside(e, currentPath)}
-            className={`absolute inset-0 transition-all ${
-              isDropInsideTarget
-                ? 'bg-green-100 bg-opacity-80 border-4 border-dashed border-green-500 pointer-events-auto'
-                : 'hover:bg-green-50 hover:border-2 hover:border-dashed hover:border-green-300 pointer-events-auto'
-            }`}
-            style={{ zIndex: 50 }}
-          >
-            {isDropInsideTarget && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="bg-green-600 text-white text-sm px-4 py-2 rounded-full font-bold shadow-xl animate-pulse">
-                  Drop inside container
-                </div>
-              </div>
-            )}
+        {isDraggedOver && dropZone === 'after' && (
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-500 z-30 shadow-lg">
+            <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-xs px-3 py-1 rounded-full font-semibold shadow-lg whitespace-nowrap">
+              ↓ Вставить после
+            </div>
+          </div>
+        )}
+
+        {isDraggedOver && dropZone === 'inside' && (
+          <div className="absolute inset-0 bg-green-100 bg-opacity-80 border-4 border-dashed border-green-500 rounded z-20 flex items-center justify-center pointer-events-none">
+            <div className="bg-green-600 text-white text-sm px-4 py-2 rounded-full font-bold shadow-xl animate-pulse">
+              📦 Вставить внутрь
+            </div>
           </div>
         )}
 

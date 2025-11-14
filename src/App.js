@@ -312,6 +312,19 @@ const App = () => {
     e.preventDefault();
     e.stopPropagation();
 
+    // Don't allow dropping on the element being dragged
+    if (draggedItem && JSON.stringify(draggedItem) === JSON.stringify(path)) {
+      return;
+    }
+
+    // Don't allow dropping inside a child of the dragged element
+    if (draggedItem && path.length > draggedItem.length) {
+      const isChild = draggedItem.every((val, idx) => val === path[idx]);
+      if (isChild) {
+        return;
+      }
+    }
+
     const rect = e.currentTarget.getBoundingClientRect();
     const y = e.clientY - rect.top;
     const height = rect.height;
@@ -1054,6 +1067,24 @@ const App = () => {
                           />
                         </div>
 
+                        {selectedElement.element.srcKey && (
+                          <div>
+                            <label className="block text-xs font-semibold mb-1">Image URL</label>
+                            <input
+                              type="text"
+                              value={defaultData[selectedElement.element.srcKey] || ''}
+                              onChange={(e) => {
+                                setDefaultData({
+                                  ...defaultData,
+                                  [selectedElement.element.srcKey]: e.target.value
+                                });
+                              }}
+                              className="w-full px-2 py-1 border rounded text-xs"
+                              placeholder="https://example.com/image.jpg"
+                            />
+                          </div>
+                        )}
+
                         {selectedElement.element.type === 'img' && (
                           <div>
                             <label className="block text-xs font-semibold mb-1">Alt Key</label>
@@ -1065,7 +1096,7 @@ const App = () => {
                                 const element = getElementByPath(newStructure, selectedElement.path);
                                 element.altKey = e.target.value;
                                 setStructure(newStructure);
-                                
+
                                 if (e.target.value && !defaultData[e.target.value]) {
                                   setDefaultData({ ...defaultData, [e.target.value]: 'Image description' });
                                 }
@@ -1077,47 +1108,83 @@ const App = () => {
                         )}
 
                         {selectedElement.element.type === 'video' && (
-                          <div>
-                            <label className="block text-xs font-semibold mb-1">Poster Key</label>
-                            <input
-                              type="text"
-                              value={selectedElement.element.posterKey || ''}
-                              onChange={(e) => {
-                                const newStructure = [...structure];
-                                const element = getElementByPath(newStructure, selectedElement.path);
-                                element.posterKey = e.target.value;
-                                setStructure(newStructure);
-                                
-                                if (e.target.value && !defaultData[e.target.value]) {
-                                  setDefaultData({ ...defaultData, [e.target.value]: 'https://via.placeholder.com/800x600' });
-                                }
-                              }}
-                              className="w-full px-2 py-1 border rounded text-xs"
-                              placeholder="e.g., videoPoster"
-                            />
-                          </div>
+                          <>
+                            <div>
+                              <label className="block text-xs font-semibold mb-1">Poster Key</label>
+                              <input
+                                type="text"
+                                value={selectedElement.element.posterKey || ''}
+                                onChange={(e) => {
+                                  const newStructure = [...structure];
+                                  const element = getElementByPath(newStructure, selectedElement.path);
+                                  element.posterKey = e.target.value;
+                                  setStructure(newStructure);
+
+                                  if (e.target.value && !defaultData[e.target.value]) {
+                                    setDefaultData({ ...defaultData, [e.target.value]: 'https://via.placeholder.com/800x600' });
+                                  }
+                                }}
+                                className="w-full px-2 py-1 border rounded text-xs"
+                                placeholder="e.g., videoPoster"
+                              />
+                            </div>
+                            {selectedElement.element.posterKey && (
+                              <div>
+                                <label className="block text-xs font-semibold mb-1">Poster URL</label>
+                                <input
+                                  type="text"
+                                  value={defaultData[selectedElement.element.posterKey] || ''}
+                                  onChange={(e) => {
+                                    setDefaultData({
+                                      ...defaultData,
+                                      [selectedElement.element.posterKey]: e.target.value
+                                    });
+                                  }}
+                                  className="w-full px-2 py-1 border rounded text-xs"
+                                  placeholder="https://example.com/poster.jpg"
+                                />
+                              </div>
+                            )}
+                          </>
                         )}
 
                         {selectedElement.element.type === 'iframe' && (
-                          <div>
-                            <label className="block text-xs font-semibold mb-1">Title Key</label>
-                            <input
-                              type="text"
-                              value={selectedElement.element.titleKey || ''}
-                              onChange={(e) => {
-                                const newStructure = [...structure];
-                                const element = getElementByPath(newStructure, selectedElement.path);
-                                element.titleKey = e.target.value;
-                                setStructure(newStructure);
-                                
-                                if (e.target.value && !defaultData[e.target.value]) {
-                                  setDefaultData({ ...defaultData, [e.target.value]: 'Embedded content' });
-                                }
-                              }}
-                              className="w-full px-2 py-1 border rounded text-xs"
-                              placeholder="e.g., iframeTitle"
-                            />
-                          </div>
+                          <>
+                            <div>
+                              <label className="block text-xs font-semibold mb-1">Iframe URL</label>
+                              <input
+                                type="text"
+                                value={defaultData[selectedElement.element.srcKey] || ''}
+                                onChange={(e) => {
+                                  setDefaultData({
+                                    ...defaultData,
+                                    [selectedElement.element.srcKey]: e.target.value
+                                  });
+                                }}
+                                className="w-full px-2 py-1 border rounded text-xs"
+                                placeholder="https://www.youtube.com/embed/..."
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold mb-1">Title Key</label>
+                              <input
+                                type="text"
+                                value={selectedElement.element.titleKey || ''}
+                                onChange={(e) => {
+                                  const newStructure = [...structure];
+                                  const element = getElementByPath(newStructure, selectedElement.path);
+                                  element.titleKey = e.target.value;
+                                  setStructure(newStructure);
+
+                                  if (e.target.value && !defaultData[e.target.value]) {
+                                    setDefaultData({ ...defaultData, [e.target.value]: 'Embedded content' });
+                                  }
+                                }}
+                                className="w-full px-2 py-1 border rounded text-xs"
+                                placeholder="e.g., iframeTitle"
+                              />
+                            </div>
+                          </>
                         )}
 
                         {(selectedElement.element.type === 'video' || selectedElement.element.type === 'audio') && (

@@ -1,6 +1,6 @@
 import React from 'react';
+import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { GripVertical, Copy, Trash2 } from 'lucide-react';
-import DropZone from '../DropZone';
 
 const VisualElement = ({
   element,
@@ -10,24 +10,19 @@ const VisualElement = ({
   defaultData,
   editableStyles,
   previewStyles,
-  draggedItem,
-  hoveredDropZone,
-  setHoveredDropZone,
+  activeId,
   onSelectElement,
-  onDragStart,
-  onDragEnd,
   onCopyElement,
   onDeleteElement,
-  handleDropAtPosition,
   renderDropZone,
-  onDrop,
-  setDropTarget,
-  setDropZone
+  getIdFromPath,
 }) => {
   const currentPath = [...path];
   const pathStr = currentPath.join('-');
+  const elementId = getIdFromPath(currentPath);
   const isSelected = selectedElement && JSON.stringify(selectedElement.path) === JSON.stringify(currentPath);
   const hasChildren = element.children !== undefined;
+  const isContainer = hasChildren;
 
   // Build breadcrumb path for hierarchical handles
   const buildBreadcrumb = () => {
@@ -55,6 +50,35 @@ const VisualElement = ({
   const breadcrumb = buildBreadcrumb();
   const shouldShowBreadcrumb = breadcrumb.length > 1;
 
+  // Use draggable for the element
+  const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({
+    id: elementId,
+    data: {
+      type: 'element',
+      path: currentPath,
+      element,
+    },
+  });
+
+  // Use droppable if it's a container
+  const { setNodeRef: setDropRef, isOver } = useDroppable({
+    id: `${elementId}-container`,
+    data: {
+      type: 'element',
+      path: currentPath,
+      element,
+    },
+    disabled: !isContainer,
+  });
+
+  // Combine refs
+  const setRefs = (node) => {
+    setDragRef(node);
+    if (isContainer) {
+      setDropRef(node);
+    }
+  };
+
   // Inline styles from element.styles
   const inlineStyles = {};
   if (element.styles) {
@@ -81,15 +105,17 @@ const VisualElement = ({
 
   return (
     <div
+      ref={setRefs}
       key={pathStr}
       className={`group transition-all duration-150 ease-in-out ${
         isSelected ? 'ring-2 ring-blue-500 ring-offset-2 bg-blue-50' : ''
-      }`}
+      } ${isOver && isContainer ? 'ring-2 ring-green-500' : ''}`}
       style={{
         minHeight: element.children ? '40px' : 'auto',
         overflow: 'visible',
-        opacity: draggedItem && JSON.stringify(draggedItem) === JSON.stringify(currentPath) ? '0.4' : '1',
-        position: 'relative'
+        opacity: isDragging ? '0.4' : '1',
+        position: 'relative',
+        pointerEvents: 'none'
       }}
     >
       {/* Element controls overlay */}
@@ -101,25 +127,20 @@ const VisualElement = ({
               <div
                 key={crumb.path.join('-')}
                 data-drag-handle
-                draggable
-                onDragStart={(e) => {
-                  e.stopPropagation();
-                  onDragStart(e, crumb.path);
-                }}
-                onDragEnd={(e) => {
-                  e.stopPropagation();
-                  onDragEnd();
-                }}
+                {...(idx === breadcrumb.length - 1 ? listeners : {})}
+                {...(idx === breadcrumb.length - 1 ? attributes : {})}
                 onClick={(e) => {
                   e.stopPropagation();
                   onSelectElement({ element: crumb.element, path: crumb.path });
                 }}
-                className={`flex items-center gap-1 px-2 py-1 text-white text-xs font-semibold select-none cursor-grab active:cursor-grabbing transition-all ${
+                className={`flex items-center gap-1 px-2 py-1 text-white text-xs font-semibold select-none ${
+                  idx === breadcrumb.length - 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
+                } transition-all ${
                   idx === breadcrumb.length - 1
                     ? 'bg-blue-600/95 backdrop-blur-sm rounded-br shadow-md'
                     : 'bg-gray-600/90 backdrop-blur-sm hover:bg-gray-700/90'
                 } ${idx === 0 ? 'rounded-tl' : ''}`}
-                title={`Drag ${crumb.label}${crumb.element.children !== undefined ? ' (container)' : ''}`}
+                title={`${idx === breadcrumb.length - 1 ? 'Drag' : 'Select'} ${crumb.label}${crumb.element.children !== undefined ? ' (container)' : ''}`}
               >
                 <GripVertical size={12} />
                 <span>{crumb.label}</span>
@@ -129,15 +150,8 @@ const VisualElement = ({
           ) : (
             <div
               data-drag-handle
-              draggable
-              onDragStart={(e) => {
-                e.stopPropagation();
-                onDragStart(e, currentPath);
-              }}
-              onDragEnd={(e) => {
-                e.stopPropagation();
-                onDragEnd();
-              }}
+              {...listeners}
+              {...attributes}
               className="flex items-center gap-1 px-2 py-1 bg-blue-600/95 backdrop-blur-sm rounded-tl rounded-br shadow-md text-white text-xs font-semibold select-none cursor-grab active:cursor-grabbing"
               title={`Drag ${element.type}${hasChildren ? ' (container)' : ''}`}
             >
@@ -176,7 +190,7 @@ const VisualElement = ({
       {isVoidElement ? (
         <ElementTag
           className={element.className || ''}
-          style={{...inlineStyles}}
+          style={{...inlineStyles, pointerEvents: 'auto'}}
           src={element.srcKey ? defaultData[element.srcKey] : undefined}
           alt={element.altKey ? defaultData[element.altKey] : undefined}
           onClick={(e) => {
@@ -187,7 +201,7 @@ const VisualElement = ({
       ) : (
         <ElementTag
           className={element.className || ''}
-          style={{...inlineStyles, position: 'relative'}}
+          style={{...inlineStyles, position: 'relative', pointerEvents: 'auto'}}
           src={element.srcKey ? defaultData[element.srcKey] : undefined}
           alt={element.altKey ? defaultData[element.altKey] : undefined}
           href={element.hrefKey ? defaultData[element.hrefKey] : undefined}
@@ -218,19 +232,12 @@ const VisualElement = ({
                     defaultData={defaultData}
                     editableStyles={editableStyles}
                     previewStyles={previewStyles}
-                    draggedItem={draggedItem}
-                    hoveredDropZone={hoveredDropZone}
-                    setHoveredDropZone={setHoveredDropZone}
+                    activeId={activeId}
                     onSelectElement={onSelectElement}
-                    onDragStart={onDragStart}
-                    onDragEnd={onDragEnd}
                     onCopyElement={onCopyElement}
                     onDeleteElement={onDeleteElement}
-                    handleDropAtPosition={handleDropAtPosition}
                     renderDropZone={renderDropZone}
-                    onDrop={onDrop}
-                    setDropTarget={setDropTarget}
-                    setDropZone={setDropZone}
+                    getIdFromPath={getIdFromPath}
                   />
                 </React.Fragment>
               ))}
@@ -240,17 +247,7 @@ const VisualElement = ({
           {element.children && element.children.length === 0 && (
             <div
               className="text-gray-400 text-sm py-8 text-center border-2 border-dashed border-gray-300 rounded m-2 hover:bg-gray-100 hover:border-gray-400 transition-colors select-none"
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setDropTarget(currentPath);
-                setDropZone('inside');
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onDrop(e, currentPath);
-              }}
+              style={{ pointerEvents: 'auto' }}
             >
               <div className="text-lg mb-1">📦</div>
               <div className="font-medium">Перетащите элементы сюда</div>

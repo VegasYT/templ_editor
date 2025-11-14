@@ -1,16 +1,23 @@
 import React, { useState } from 'react';
 import { Copy, Eye, Code, Settings } from 'lucide-react';
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
 
 // Constants
-import { elementTypes, categories, commonClasses } from './constants';
+import { commonClasses } from './constants';
 
 // Utils
 import { getElementByPath, getDefaultClasses } from './utils/elementUtils';
 import { exportJSON as exportJSONUtil, importJSON as importJSONUtil } from './utils/jsonUtils';
 
 // Hooks
-import { useDragAndDrop } from './hooks/useDragAndDrop';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useDndHandlers } from './hooks/useDndHandlers';
 
 // Components
 import Header from './components/Header';
@@ -18,6 +25,7 @@ import { ElementsSidebar } from './components/Sidebar';
 import ElementTree from './components/ElementTree';
 import VisualElement from './components/VisualElement';
 import DropZone from './components/DropZone';
+import EmptyCanvasDropZone from './components/EmptyCanvasDropZone';
 
 const App = () => {
   const [structure, setStructure] = useState([]);
@@ -28,28 +36,31 @@ const App = () => {
   const [categoryId, setCategoryId] = useState(1);
   const [viewMode, setViewMode] = useState('builder');
   const [collapsedNodes, setCollapsedNodes] = useState({});
-  const [draggedItem, setDraggedItem] = useState(null);
-  const [dropTarget, setDropTarget] = useState(null);
-  const [dropZone, setDropZone] = useState(null);
-  const [draggedElementType, setDraggedElementType] = useState(null);
   const [previewStyles, setPreviewStyles] = useState({});
   const [previewMode, setPreviewMode] = useState('desktop');
-  const [hoveredDropZone, setHoveredDropZone] = useState(null);
 
-  // Drag and drop handlers
-  const dragAndDropHandlers = useDragAndDrop({
+  // dnd-kit state
+  const [activeId, setActiveId] = useState(null);
+  const [draggedElementType, setDraggedElementType] = useState(null);
+
+  // Configure sensors for drag and drop
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Require 8px movement before drag starts
+      },
+    }),
+    useSensor(KeyboardSensor)
+  );
+
+  // dnd-kit handlers
+  const dndHandlers = useDndHandlers({
     structure,
     setStructure,
     defaultData,
     setDefaultData,
-    draggedItem,
-    setDraggedItem,
-    draggedElementType,
+    setActiveId,
     setDraggedElementType,
-    dropTarget,
-    setDropTarget,
-    dropZone,
-    setDropZone
   });
 
   // Add element
@@ -245,11 +256,7 @@ const App = () => {
       <DropZone
         parentPath={parentPath}
         insertIndex={insertIndex}
-        draggedItem={draggedItem}
-        draggedElementType={draggedElementType}
-        hoveredDropZone={hoveredDropZone}
-        setHoveredDropZone={setHoveredDropZone}
-        handleDropAtPosition={dragAndDropHandlers.handleDropAtPosition}
+        activeId={activeId}
       />
     );
   };
@@ -265,24 +272,12 @@ const App = () => {
         defaultData={defaultData}
         editableStyles={editableStyles}
         previewStyles={previewStyles}
-        draggedItem={draggedItem}
-        hoveredDropZone={hoveredDropZone}
-        setHoveredDropZone={setHoveredDropZone}
+        activeId={activeId}
         onSelectElement={setSelectedElement}
-        onDragStart={dragAndDropHandlers.handleDragStart}
-        onDragEnd={() => {
-          setDraggedItem(null);
-          setDropTarget(null);
-          setDropZone(null);
-          setHoveredDropZone(null);
-        }}
         onCopyElement={copyElement}
         onDeleteElement={deleteElement}
-        handleDropAtPosition={dragAndDropHandlers.handleDropAtPosition}
         renderDropZone={renderDropZone}
-        onDrop={dragAndDropHandlers.handleDrop}
-        setDropTarget={setDropTarget}
-        setDropZone={setDropZone}
+        getIdFromPath={dndHandlers.getIdFromPath}
       />
     );
   };
@@ -291,9 +286,15 @@ const App = () => {
   useKeyboardShortcuts(selectedElement, deleteElement, copyElement);
 
   return (
-    <div className="h-screen flex flex-col bg-gray-100">
-      {/* Header */}
-      <Header
+    <DndContext
+      sensors={sensors}
+      onDragStart={dndHandlers.handleDragStart}
+      onDragOver={dndHandlers.handleDragOver}
+      onDragEnd={dndHandlers.handleDragEnd}
+    >
+      <div className="h-screen flex flex-col bg-gray-100">
+        {/* Header */}
+        <Header
         templateName={templateName}
         setTemplateName={setTemplateName}
         categoryId={categoryId}
@@ -312,7 +313,6 @@ const App = () => {
             <div className="w-64 bg-white border-r overflow-y-auto">
               <ElementsSidebar
                 onAddElement={addElement}
-                onElementDragStart={dragAndDropHandlers.handleElementDragStart}
               />
 
               <div className="border-t p-4">
@@ -791,7 +791,6 @@ const App = () => {
             <div className="w-64 bg-white border-r overflow-y-auto">
               <ElementsSidebar
                 onAddElement={addElement}
-                onElementDragStart={dragAndDropHandlers.handleElementDragStart}
               />
 
               <div className="border-t p-4">
@@ -879,28 +878,7 @@ const App = () => {
                   </div>
 
                   {structure.length === 0 ? (
-                    <div
-                      className="border-2 border-dashed border-gray-300 rounded p-16 text-center bg-gray-50 hover:border-blue-400 hover:bg-blue-50 transition-colors"
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        e.currentTarget.classList.add('border-green-500', 'bg-green-50');
-                      }}
-                      onDragLeave={(e) => {
-                        e.currentTarget.classList.remove('border-green-500', 'bg-green-50');
-                      }}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        e.currentTarget.classList.remove('border-green-500', 'bg-green-50');
-                        if (draggedElementType) {
-                          addElement(draggedElementType);
-                          setDraggedElementType(null);
-                        }
-                      }}
-                    >
-                      <div className="text-4xl mb-4">📦</div>
-                      <p className="text-gray-500 text-lg mb-2">Начните создавать</p>
-                      <p className="text-gray-400 text-sm">Перетащите элементы из левой панели или нажмите на них</p>
-                    </div>
+                    <EmptyCanvasDropZone />
                   ) : (
                     <div className="space-y-0">
                       {structure.map((element, index) => (
@@ -1152,7 +1130,8 @@ const App = () => {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </DndContext>
   );
 };
 

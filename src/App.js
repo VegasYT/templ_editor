@@ -672,9 +672,109 @@ const App = () => {
     }
   };
 
+  // Handle drop at explicit position (for drop zones)
+  const handleDropAtPosition = (e, parentPath, insertIndex) => {
+    // If dropping a new element from left panel
+    if (draggedElementType) {
+      const newStructure = [...structure];
+      const containerTypes = ['container', 'div', 'grid', 'ul', 'ol', 'button', 'a'];
+      const needsDataKey = !['container', 'div', 'grid', 'br', 'hr', 'ul', 'ol', 'img', 'video', 'audio', 'iframe'].includes(draggedElementType);
+
+      const newElement = {
+        type: draggedElementType,
+        className: getDefaultClasses(draggedElementType),
+        styles: {},
+        children: containerTypes.includes(draggedElementType) ? [] : undefined,
+        dataKey: needsDataKey ? `${draggedElementType}_${Date.now()}` : undefined,
+      };
+
+      // Add default data for text elements
+      if (needsDataKey && newElement.dataKey) {
+        setDefaultData({
+          ...defaultData,
+          [newElement.dataKey]: `Sample ${draggedElementType} text`
+        });
+      }
+
+      // Special handling for media elements
+      if (draggedElementType === 'img') {
+        newElement.srcKey = `image_${Date.now()}`;
+        newElement.altKey = `alt_${Date.now()}`;
+        setDefaultData({
+          ...defaultData,
+          [newElement.srcKey]: 'https://via.placeholder.com/800x600',
+          [newElement.altKey]: 'Image description'
+        });
+      }
+
+      // Insert at the specified position
+      if (parentPath.length === 0) {
+        // Top level
+        newStructure.splice(insertIndex, 0, newElement);
+      } else {
+        // Inside a container
+        const parent = getElementByPath(newStructure, parentPath);
+        if (parent && parent.children) {
+          parent.children.splice(insertIndex, 0, newElement);
+        }
+      }
+
+      setStructure(newStructure);
+      setDraggedElementType(null);
+      return;
+    }
+
+    // If moving an existing element
+    if (draggedItem) {
+      const newStructure = [...structure];
+
+      // Get dragged element
+      const draggedElement = getElementByPath(newStructure, draggedItem);
+      if (!draggedElement) {
+        console.error('Dragged element not found');
+        setDraggedItem(null);
+        return;
+      }
+      const draggedElementCopy = JSON.parse(JSON.stringify(draggedElement));
+
+      // Remove from old position
+      if (draggedItem.length === 1) {
+        newStructure.splice(draggedItem[0], 1);
+      } else {
+        const dragParentPath = draggedItem.slice(0, -1);
+        const dragParent = getElementByPath(newStructure, dragParentPath);
+        if (dragParent && dragParent.children) {
+          dragParent.children.splice(draggedItem[draggedItem.length - 1], 1);
+        }
+      }
+
+      // Adjust insert index if dragging within same parent
+      let adjustedIndex = insertIndex;
+      const sameParent = JSON.stringify(draggedItem.slice(0, -1)) === JSON.stringify(parentPath);
+      if (sameParent && draggedItem[draggedItem.length - 1] < insertIndex) {
+        adjustedIndex--;
+      }
+
+      // Insert at new position
+      if (parentPath.length === 0) {
+        // Top level
+        newStructure.splice(adjustedIndex, 0, draggedElementCopy);
+      } else {
+        // Inside a container
+        const parent = getElementByPath(newStructure, parentPath);
+        if (parent && parent.children) {
+          parent.children.splice(adjustedIndex, 0, draggedElementCopy);
+        }
+      }
+
+      setStructure(newStructure);
+      setDraggedItem(null);
+    }
+  };
+
   // Explicit Drop Zone component - renders between elements
-  const renderDropZone = (parentPath, index, position) => {
-    const zoneId = `${parentPath.join('-')}-${index}-${position}`;
+  const renderDropZone = (parentPath, insertIndex) => {
+    const zoneId = `${parentPath.join('-')}-insert-${insertIndex}`;
     const isDragging = draggedItem || draggedElementType;
     const isHovered = hoveredDropZone === zoneId;
 
@@ -690,8 +790,9 @@ const App = () => {
           e.preventDefault();
           e.stopPropagation();
           setHoveredDropZone(zoneId);
-          setDropTarget(parentPath);
-          setDropZone(position === 'before-first' ? 'before' : 'after');
+          // Store the insert position for later
+          e.currentTarget.dataset.insertIndex = insertIndex;
+          e.currentTarget.dataset.parentPath = JSON.stringify(parentPath);
         }}
         onDragLeave={(e) => {
           e.preventDefault();
@@ -708,9 +809,11 @@ const App = () => {
           e.preventDefault();
           e.stopPropagation();
 
-          // Handle drop logic
-          const targetPath = position === 'before-first' ? [...parentPath, 0] : [...parentPath, index];
-          handleDrop(e, targetPath);
+          // Handle drop logic with explicit insert position
+          const insertIdx = parseInt(e.currentTarget.dataset.insertIndex);
+          const parent = JSON.parse(e.currentTarget.dataset.parentPath);
+
+          handleDropAtPosition(e, parent, insertIdx);
           setHoveredDropZone(null);
         }}
       >
@@ -851,6 +954,7 @@ const App = () => {
                     setDraggedItem(null);
                     setDropTarget(null);
                     setDropZone(null);
+                    setHoveredDropZone(null);
                   }}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -882,6 +986,7 @@ const App = () => {
                   setDraggedItem(null);
                   setDropTarget(null);
                   setDropZone(null);
+                  setHoveredDropZone(null);
                 }}
                 className="flex items-center gap-1 px-2 py-1 bg-blue-600/95 backdrop-blur-sm rounded-tl rounded-br shadow-md text-white text-xs font-semibold select-none cursor-grab active:cursor-grabbing"
                 title={`Drag ${element.type}${hasChildren ? ' (container)' : ''}`}
@@ -994,17 +1099,16 @@ const App = () => {
             {content}
             {element.children && element.children.length > 0 && (
               <>
-                {/* Drop zone before first child */}
-                {renderDropZone(currentPath, 0, 'before-first')}
-
-                {/* Render children with drop zones between them */}
+                {/* Render children with drop zones ONLY before each */}
                 {element.children.map((child, index) => (
                   <React.Fragment key={`${currentPath.join('-')}-${index}`}>
+                    {/* Drop zone before each child */}
+                    {renderDropZone(currentPath, index)}
                     {renderVisualElement(child, [...currentPath, index])}
-                    {/* Drop zone after each child */}
-                    {renderDropZone(currentPath, index + 1, 'after')}
                   </React.Fragment>
                 ))}
+                {/* Drop zone after last child */}
+                {renderDropZone(currentPath, element.children.length)}
               </>
             )}
             {element.children && element.children.length === 0 && (
@@ -2012,17 +2116,16 @@ const App = () => {
                     </div>
                   ) : (
                     <div className="space-y-0">
-                      {/* Drop zone before first element */}
-                      {renderDropZone([], 0, 'before-first')}
-
-                      {/* Render top-level elements with drop zones between them */}
+                      {/* Render top-level elements with drop zones ONLY before each */}
                       {structure.map((element, index) => (
                         <React.Fragment key={`root-${index}`}>
+                          {/* Drop zone before each element */}
+                          {renderDropZone([], index)}
                           {renderVisualElement(element, [index])}
-                          {/* Drop zone after each element */}
-                          {renderDropZone([], index + 1, 'after')}
                         </React.Fragment>
                       ))}
+                      {/* Drop zone after last element */}
+                      {renderDropZone([], structure.length)}
                     </div>
                   )}
                 </div>

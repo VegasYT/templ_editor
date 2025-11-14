@@ -16,6 +16,7 @@ const App = () => {
   const [draggedElementType, setDraggedElementType] = useState(null); // For dragging from left panel
   const [previewStyles, setPreviewStyles] = useState({}); // For live preview of editable styles
   const [previewMode, setPreviewMode] = useState('desktop'); // desktop, tablet, mobile
+  const [hoveredDropZone, setHoveredDropZone] = useState(null); // For explicit drop zones between elements
 
   // Базовые элементы для добавления
   const elementTypes = [
@@ -671,6 +672,81 @@ const App = () => {
     }
   };
 
+  // Explicit Drop Zone component - renders between elements
+  const renderDropZone = (parentPath, index, position) => {
+    const zoneId = `${parentPath.join('-')}-${index}-${position}`;
+    const isDragging = draggedItem || draggedElementType;
+    const isHovered = hoveredDropZone === zoneId;
+
+    if (!isDragging) return null;
+
+    return (
+      <div
+        key={`dropzone-${zoneId}`}
+        className={`relative transition-all duration-200 ${
+          isHovered ? 'h-12' : 'h-2'
+        }`}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setHoveredDropZone(zoneId);
+          setDropTarget(parentPath);
+          setDropZone(position === 'before-first' ? 'before' : 'after');
+        }}
+        onDragLeave={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const rect = e.currentTarget.getBoundingClientRect();
+          const x = e.clientX;
+          const y = e.clientY;
+          const isOutside = x < rect.left || x > rect.right || y < rect.top || y > rect.bottom;
+          if (isOutside) {
+            setHoveredDropZone(null);
+          }
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+
+          // Handle drop logic
+          const targetPath = position === 'before-first' ? [...parentPath, 0] : [...parentPath, index];
+          handleDrop(e, targetPath);
+          setHoveredDropZone(null);
+        }}
+      >
+        {/* Drop zone indicator */}
+        <div className={`absolute inset-0 flex items-center justify-center transition-all duration-200 ${
+          isHovered ? 'opacity-100' : 'opacity-30 hover:opacity-70'
+        }`}>
+          {/* Line */}
+          <div className={`w-full transition-all duration-200 ${
+            isHovered ? 'h-1 bg-blue-600' : 'h-0.5 bg-blue-400'
+          } relative`}>
+            {/* Dots at the ends */}
+            <div className={`absolute left-0 top-1/2 -translate-y-1/2 rounded-full bg-blue-600 transition-all duration-200 ${
+              isHovered ? 'w-3 h-3' : 'w-2 h-2'
+            }`}></div>
+            <div className={`absolute right-0 top-1/2 -translate-y-1/2 rounded-full bg-blue-600 transition-all duration-200 ${
+              isHovered ? 'w-3 h-3' : 'w-2 h-2'
+            }`}></div>
+            {/* Center dot */}
+            {isHovered && (
+              <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-blue-600 flex items-center justify-center">
+                <div className="w-2 h-2 rounded-full bg-white"></div>
+              </div>
+            )}
+          </div>
+          {/* Label when hovered */}
+          {isHovered && (
+            <div className="absolute left-1/2 -translate-x-1/2 -top-8 bg-blue-600 text-white text-xs px-3 py-1.5 rounded-lg font-medium shadow-lg whitespace-nowrap">
+              Вставить сюда
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   // Visual rendering of elements
   const renderVisualElement = (element, path = []) => {
     const currentPath = [...path];
@@ -916,11 +992,36 @@ const App = () => {
             allowFullScreen={element.allowFullScreen}
           >
             {content}
-            {element.children && element.children.map((child, index) =>
-              renderVisualElement(child, [...currentPath, index])
+            {element.children && element.children.length > 0 && (
+              <>
+                {/* Drop zone before first child */}
+                {renderDropZone(currentPath, 0, 'before-first')}
+
+                {/* Render children with drop zones between them */}
+                {element.children.map((child, index) => (
+                  <React.Fragment key={`${currentPath.join('-')}-${index}`}>
+                    {renderVisualElement(child, [...currentPath, index])}
+                    {/* Drop zone after each child */}
+                    {renderDropZone(currentPath, index + 1, 'after')}
+                  </React.Fragment>
+                ))}
+              </>
             )}
             {element.children && element.children.length === 0 && (
-              <div className="text-gray-400 text-sm py-8 text-center border-2 border-dashed border-gray-300 rounded m-2 hover:bg-gray-100 hover:border-gray-400 transition-colors pointer-events-none select-none">
+              <div
+                className="text-gray-400 text-sm py-8 text-center border-2 border-dashed border-gray-300 rounded m-2 hover:bg-gray-100 hover:border-gray-400 transition-colors select-none"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setDropTarget(currentPath);
+                  setDropZone('inside');
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleDrop(e, currentPath);
+                }}
+              >
                 <div className="text-lg mb-1">📦</div>
                 <div className="font-medium">Перетащите элементы сюда</div>
                 <div className="text-xs mt-1 opacity-75">или используйте кнопку +</div>
@@ -1910,8 +2011,18 @@ const App = () => {
                       <p className="text-gray-400 text-sm">Перетащите элементы из левой панели или нажмите на них</p>
                     </div>
                   ) : (
-                    <div className="space-y-2">
-                      {structure.map((element, index) => renderVisualElement(element, [index]))}
+                    <div className="space-y-0">
+                      {/* Drop zone before first element */}
+                      {renderDropZone([], 0, 'before-first')}
+
+                      {/* Render top-level elements with drop zones between them */}
+                      {structure.map((element, index) => (
+                        <React.Fragment key={`root-${index}`}>
+                          {renderVisualElement(element, [index])}
+                          {/* Drop zone after each element */}
+                          {renderDropZone([], index + 1, 'after')}
+                        </React.Fragment>
+                      ))}
                     </div>
                   )}
                 </div>

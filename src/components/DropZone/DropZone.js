@@ -25,13 +25,13 @@ const DropZone = ({
       ref={setNodeRef}
       key={zoneId}
       className={`transition-all duration-200 ${
-        isOver ? 'h-24 z-[9999]' : 'h-16 z-[9999]'
+        isOver ? 'h-32 z-[9999]' : 'h-20 z-[9999]'
       }`}
       style={{
         pointerEvents: 'auto',
         position: 'relative',
-        marginTop: isOver ? '-16px' : '-12px',
-        marginBottom: isOver ? '-16px' : '-12px'
+        marginTop: isOver ? '-24px' : '-16px',
+        marginBottom: isOver ? '-24px' : '-16px'
       }}
     >
       {/* Drop zone indicator */}

@@ -1,7 +1,34 @@
 import React from 'react';
+import { useDraggable } from '@dnd-kit/core';
 import { elementTypes, categories } from '../../constants';
 
-const ElementsSidebar = ({ onAddElement, onElementDragStart }) => {
+const DraggableElement = ({ el, onAddElement }) => {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `new-${el.type}`,
+    data: {
+      type: 'new',
+      elementType: el.type,
+    },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      onClick={() => onAddElement(el.type)}
+      className={`w-full p-2 border rounded hover:bg-blue-50 text-left flex items-center gap-2 text-xs cursor-move hover:shadow-md transition-all ${
+        isDragging ? 'opacity-50' : ''
+      }`}
+    >
+      <span className="text-sm">{el.icon}</span>
+      <span>{el.label}</span>
+      <span className="ml-auto text-gray-400">⋮⋮</span>
+    </div>
+  );
+};
+
+const ElementsSidebar = ({ onAddElement }) => {
   return (
     <div className="p-4">
       <h3 className="font-bold mb-3 text-sm flex items-center gap-2">
@@ -15,17 +42,7 @@ const ElementsSidebar = ({ onAddElement, onElementDragStart }) => {
             {elementTypes
               .filter(el => el.category === category)
               .map((el) => (
-                <div
-                  key={el.type}
-                  draggable
-                  onDragStart={(e) => onElementDragStart(e, el.type)}
-                  onClick={() => onAddElement(el.type)}
-                  className="w-full p-2 border rounded hover:bg-blue-50 text-left flex items-center gap-2 text-xs cursor-move hover:shadow-md transition-all active:opacity-50"
-                >
-                  <span className="text-sm">{el.icon}</span>
-                  <span>{el.label}</span>
-                  <span className="ml-auto text-gray-400">⋮⋮</span>
-                </div>
+                <DraggableElement key={el.type} el={el} onAddElement={onAddElement} />
               ))}
           </div>
         </div>

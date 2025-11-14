@@ -709,7 +709,8 @@ const App = () => {
         style={{
           minHeight: element.children ? '40px' : 'auto',
           marginBottom: isDraggedOver && dropZone === 'after' ? '12px' : '0',
-          marginTop: isDraggedOver && dropZone === 'before' ? '12px' : '0'
+          marginTop: isDraggedOver && dropZone === 'before' ? '12px' : '0',
+          overflow: 'visible'
         }}
       >
         {/* Element label overlay */}

@@ -292,12 +292,23 @@ const App = () => {
 
   // Drag and drop handlers
   const handleDragStart = (e, path) => {
+    // Only allow drag if started from drag handle
+    const target = e.target;
+    const dragHandle = target.closest('[data-drag-handle]');
+
+    // If drag wasn't started from handle, prevent it (allows content to be selected/interacted)
+    if (!dragHandle) {
+      e.preventDefault();
+      return;
+    }
+
     e.stopPropagation();
     setDraggedItem(path);
     setDraggedElementType(null);
     e.dataTransfer.effectAllowed = 'move';
-    // Add visual feedback
-    e.currentTarget.style.opacity = '0.5';
+    // Add visual feedback - find the wrapper element
+    const wrapper = e.currentTarget;
+    wrapper.style.opacity = '0.5';
   };
 
   // Drag start for new elements from left panel
@@ -347,11 +358,11 @@ const App = () => {
       if (isEmpty) {
         setDropZone('inside');
       } else {
-        // For non-empty containers: divide into 3 zones with generous 'inside' zone
-        // before: first 25%, inside: middle 50%, after: last 25%
-        if (y < height * 0.25) {
+        // For non-empty containers: divide into 3 zones
+        // before: first 35%, inside: middle 30%, after: last 35%
+        if (y < height * 0.35) {
           setDropZone('before');
-        } else if (y > height * 0.75) {
+        } else if (y > height * 0.65) {
           setDropZone('after');
         } else {
           setDropZone('inside');
@@ -705,7 +716,7 @@ const App = () => {
           e.stopPropagation();
           setSelectedElement({ element, path: currentPath });
         }}
-        className={`relative group transition-all duration-200 ease-in-out cursor-move ${
+        className={`relative group transition-all duration-200 ease-in-out ${
           isSelected ? 'ring-2 ring-blue-500 ring-offset-2 bg-blue-50' : ''
         } ${
           canAcceptDrop && !isDraggedOver ? 'hover:ring-1 hover:ring-gray-300 hover:shadow-sm hover:bg-gray-50' : ''
@@ -722,9 +733,12 @@ const App = () => {
         {/* Element controls overlay */}
         <div className="absolute top-0 left-0 right-0 opacity-0 group-hover:opacity-100 z-20 transition-opacity flex items-center justify-between gap-2 pointer-events-none">
           {/* Left side - Drag handle and label */}
-          <div className="flex items-center gap-1 bg-blue-500 text-white text-xs px-2 py-1 rounded-br shadow-lg pointer-events-auto">
-            <GripVertical size={12} className="cursor-grab active:cursor-grabbing" />
-            <span className="font-medium">
+          <div
+            data-drag-handle
+            className="flex items-center gap-1 bg-blue-500 text-white text-xs px-2 py-1 rounded-br shadow-lg pointer-events-auto cursor-grab active:cursor-grabbing"
+          >
+            <GripVertical size={12} />
+            <span className="font-medium select-none">
               {element.type}
               {hasChildren && ' (container)'}
             </span>

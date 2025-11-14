@@ -72,50 +72,28 @@ const App = () => {
 
     // Дополнительные поля для медиа элементов
     if (type === 'img') {
-      newElement.srcKey = `image_${Date.now()}`;
-      newElement.altKey = `alt_${Date.now()}`;
-      setDefaultData({
-        ...defaultData,
-        [newElement.srcKey]: 'https://via.placeholder.com/800x600',
-        [newElement.altKey]: 'Image description'
-      });
+      newElement.src = 'https://via.placeholder.com/800x600';
+      newElement.alt = 'Image description';
     }
     if (type === 'video' || type === 'audio') {
-      newElement.srcKey = `${type}_${Date.now()}`;
+      newElement.src = type === 'video'
+        ? 'https://assets.mixkit.co/videos/preview/mixkit-tree-with-yellow-flowers-1173-large.mp4'
+        : 'https://example.com/audio.mp3';
       newElement.controls = true;
       newElement.loop = false;
       newElement.muted = false;
       newElement.autoPlay = false;
       if (type === 'video') {
-        newElement.posterKey = `poster_${Date.now()}`;
-        setDefaultData({
-          ...defaultData,
-          [newElement.srcKey]: 'https://assets.mixkit.co/videos/preview/mixkit-tree-with-yellow-flowers-1173-large.mp4',
-          [newElement.posterKey]: 'https://via.placeholder.com/1920x1080'
-        });
-      } else {
-        setDefaultData({
-          ...defaultData,
-          [newElement.srcKey]: 'https://example.com/audio.mp3'
-        });
+        newElement.poster = 'https://via.placeholder.com/1920x1080';
       }
     }
     if (type === 'iframe') {
-      newElement.srcKey = `iframe_${Date.now()}`;
-      newElement.titleKey = `iframe_title_${Date.now()}`;
+      newElement.src = 'https://www.youtube.com/embed/dQw4w9WgXcQ';
+      newElement.title = 'Embedded content';
       newElement.allowFullScreen = true;
-      setDefaultData({
-        ...defaultData,
-        [newElement.srcKey]: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
-        [newElement.titleKey]: 'Embedded content'
-      });
     }
     if (type === 'a') {
-      newElement.hrefKey = `link_${Date.now()}`;
-      setDefaultData({
-        ...defaultData,
-        [newElement.hrefKey]: '#'
-      });
+      newElement.href = '#';
     }
 
     // Добавление defaultData для текстовых элементов
@@ -403,41 +381,23 @@ const App = () => {
 
       // Special handling for media elements
       if (draggedElementType === 'img') {
-        newElement.srcKey = `image_${Date.now()}`;
-        newElement.altKey = `alt_${Date.now()}`;
-        setDefaultData({
-          ...defaultData,
-          [newElement.srcKey]: 'https://via.placeholder.com/800x600',
-          [newElement.altKey]: 'Image description'
-        });
+        newElement.src = 'https://via.placeholder.com/800x600';
+        newElement.alt = 'Image description';
       } else if (draggedElementType === 'video' || draggedElementType === 'audio') {
-        newElement.srcKey = `${draggedElementType}_${Date.now()}`;
+        newElement.src = draggedElementType === 'video'
+          ? 'https://assets.mixkit.co/videos/preview/mixkit-tree-with-yellow-flowers-1173-large.mp4'
+          : 'https://example.com/audio.mp3';
         newElement.controls = true;
         newElement.loop = false;
         newElement.muted = false;
         newElement.autoPlay = false;
         if (draggedElementType === 'video') {
-          newElement.posterKey = `poster_${Date.now()}`;
-          setDefaultData({
-            ...defaultData,
-            [newElement.srcKey]: 'https://assets.mixkit.co/videos/preview/mixkit-tree-with-yellow-flowers-1173-large.mp4',
-            [newElement.posterKey]: 'https://via.placeholder.com/800x600'
-          });
-        } else {
-          setDefaultData({
-            ...defaultData,
-            [newElement.srcKey]: 'https://example.com/audio.mp3'
-          });
+          newElement.poster = 'https://via.placeholder.com/800x600';
         }
       } else if (draggedElementType === 'iframe') {
-        newElement.srcKey = `iframe_${Date.now()}`;
-        newElement.titleKey = `title_${Date.now()}`;
+        newElement.src = 'https://www.youtube.com/embed/dQw4w9WgXcQ';
+        newElement.title = 'Embedded content';
         newElement.allowFullScreen = true;
-        setDefaultData({
-          ...defaultData,
-          [newElement.srcKey]: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
-          [newElement.titleKey]: 'Embedded content'
-        });
       }
 
       // Add based on drop zone
@@ -748,17 +708,18 @@ const App = () => {
           <ElementTag
             className={element.className || ''}
             style={{ ...inlineStyles, position: 'relative', zIndex: 2 }}
-            src={element.srcKey ? defaultData[element.srcKey] : undefined}
-            alt={element.altKey ? defaultData[element.altKey] : undefined}
+            src={element.src}
+            alt={element.alt}
           />
         ) : (
           <ElementTag
             className={element.className || ''}
             style={{ ...inlineStyles, position: 'relative', zIndex: 2 }}
-            src={element.srcKey ? defaultData[element.srcKey] : undefined}
-            alt={element.altKey ? defaultData[element.altKey] : undefined}
-            href={element.hrefKey ? defaultData[element.hrefKey] : undefined}
-            poster={element.posterKey ? defaultData[element.posterKey] : undefined}
+            src={element.src}
+            alt={element.alt}
+            href={element.href}
+            poster={element.poster}
+            title={element.title}
             controls={element.controls}
             loop={element.loop}
             muted={element.muted}
@@ -1079,151 +1040,83 @@ const App = () => {
                     )}
 
                     {/* Media Element Fields */}
-                    {(selectedElement.element.type === 'img' || 
-                      selectedElement.element.type === 'video' || 
+                    {(selectedElement.element.type === 'img' ||
+                      selectedElement.element.type === 'video' ||
                       selectedElement.element.type === 'audio' ||
                       selectedElement.element.type === 'iframe') && (
                       <div className="space-y-3 border-t pt-3">
                         <h4 className="font-semibold text-sm text-blue-600">Media Properties</h4>
-                        
+
                         <div>
-                          <label className="block text-xs font-semibold mb-1">Source Key</label>
+                          <label className="block text-xs font-semibold mb-1">
+                            {selectedElement.element.type === 'iframe' ? 'Iframe URL' : 'Source URL'}
+                          </label>
                           <input
                             type="text"
-                            value={selectedElement.element.srcKey || ''}
+                            value={selectedElement.element.src || ''}
                             onChange={(e) => {
                               const newStructure = [...structure];
                               const element = getElementByPath(newStructure, selectedElement.path);
-                              element.srcKey = e.target.value;
+                              element.src = e.target.value;
                               setStructure(newStructure);
-                              
-                              if (e.target.value && !defaultData[e.target.value]) {
-                                setDefaultData({ ...defaultData, [e.target.value]: 'https://via.placeholder.com/800x600' });
-                              }
                             }}
                             className="w-full px-2 py-1 border rounded text-xs"
-                            placeholder="e.g., heroImage"
+                            placeholder="https://example.com/image.jpg"
                           />
                         </div>
 
-                        {selectedElement.element.srcKey && (
-                          <div>
-                            <label className="block text-xs font-semibold mb-1">Image URL</label>
-                            <input
-                              type="text"
-                              value={defaultData[selectedElement.element.srcKey] || ''}
-                              onChange={(e) => {
-                                setDefaultData({
-                                  ...defaultData,
-                                  [selectedElement.element.srcKey]: e.target.value
-                                });
-                              }}
-                              className="w-full px-2 py-1 border rounded text-xs"
-                              placeholder="https://example.com/image.jpg"
-                            />
-                          </div>
-                        )}
-
                         {selectedElement.element.type === 'img' && (
                           <div>
-                            <label className="block text-xs font-semibold mb-1">Alt Key</label>
+                            <label className="block text-xs font-semibold mb-1">Alt Text</label>
                             <input
                               type="text"
-                              value={selectedElement.element.altKey || ''}
+                              value={selectedElement.element.alt || ''}
                               onChange={(e) => {
                                 const newStructure = [...structure];
                                 const element = getElementByPath(newStructure, selectedElement.path);
-                                element.altKey = e.target.value;
+                                element.alt = e.target.value;
                                 setStructure(newStructure);
-
-                                if (e.target.value && !defaultData[e.target.value]) {
-                                  setDefaultData({ ...defaultData, [e.target.value]: 'Image description' });
-                                }
                               }}
                               className="w-full px-2 py-1 border rounded text-xs"
-                              placeholder="e.g., imageAlt"
+                              placeholder="Image description"
                             />
                           </div>
                         )}
 
                         {selectedElement.element.type === 'video' && (
-                          <>
-                            <div>
-                              <label className="block text-xs font-semibold mb-1">Poster Key</label>
-                              <input
-                                type="text"
-                                value={selectedElement.element.posterKey || ''}
-                                onChange={(e) => {
-                                  const newStructure = [...structure];
-                                  const element = getElementByPath(newStructure, selectedElement.path);
-                                  element.posterKey = e.target.value;
-                                  setStructure(newStructure);
-
-                                  if (e.target.value && !defaultData[e.target.value]) {
-                                    setDefaultData({ ...defaultData, [e.target.value]: 'https://via.placeholder.com/800x600' });
-                                  }
-                                }}
-                                className="w-full px-2 py-1 border rounded text-xs"
-                                placeholder="e.g., videoPoster"
-                              />
-                            </div>
-                            {selectedElement.element.posterKey && (
-                              <div>
-                                <label className="block text-xs font-semibold mb-1">Poster URL</label>
-                                <input
-                                  type="text"
-                                  value={defaultData[selectedElement.element.posterKey] || ''}
-                                  onChange={(e) => {
-                                    setDefaultData({
-                                      ...defaultData,
-                                      [selectedElement.element.posterKey]: e.target.value
-                                    });
-                                  }}
-                                  className="w-full px-2 py-1 border rounded text-xs"
-                                  placeholder="https://example.com/poster.jpg"
-                                />
-                              </div>
-                            )}
-                          </>
+                          <div>
+                            <label className="block text-xs font-semibold mb-1">Poster URL</label>
+                            <input
+                              type="text"
+                              value={selectedElement.element.poster || ''}
+                              onChange={(e) => {
+                                const newStructure = [...structure];
+                                const element = getElementByPath(newStructure, selectedElement.path);
+                                element.poster = e.target.value;
+                                setStructure(newStructure);
+                              }}
+                              className="w-full px-2 py-1 border rounded text-xs"
+                              placeholder="https://example.com/poster.jpg"
+                            />
+                          </div>
                         )}
 
                         {selectedElement.element.type === 'iframe' && (
-                          <>
-                            <div>
-                              <label className="block text-xs font-semibold mb-1">Iframe URL</label>
-                              <input
-                                type="text"
-                                value={defaultData[selectedElement.element.srcKey] || ''}
-                                onChange={(e) => {
-                                  setDefaultData({
-                                    ...defaultData,
-                                    [selectedElement.element.srcKey]: e.target.value
-                                  });
-                                }}
-                                className="w-full px-2 py-1 border rounded text-xs"
-                                placeholder="https://www.youtube.com/embed/..."
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-semibold mb-1">Title Key</label>
-                              <input
-                                type="text"
-                                value={selectedElement.element.titleKey || ''}
-                                onChange={(e) => {
-                                  const newStructure = [...structure];
-                                  const element = getElementByPath(newStructure, selectedElement.path);
-                                  element.titleKey = e.target.value;
-                                  setStructure(newStructure);
-
-                                  if (e.target.value && !defaultData[e.target.value]) {
-                                    setDefaultData({ ...defaultData, [e.target.value]: 'Embedded content' });
-                                  }
-                                }}
-                                className="w-full px-2 py-1 border rounded text-xs"
-                                placeholder="e.g., iframeTitle"
-                              />
-                            </div>
-                          </>
+                          <div>
+                            <label className="block text-xs font-semibold mb-1">Title</label>
+                            <input
+                              type="text"
+                              value={selectedElement.element.title || ''}
+                              onChange={(e) => {
+                                const newStructure = [...structure];
+                                const element = getElementByPath(newStructure, selectedElement.path);
+                                element.title = e.target.value;
+                                setStructure(newStructure);
+                              }}
+                              className="w-full px-2 py-1 border rounded text-xs"
+                              placeholder="Embedded content"
+                            />
+                          </div>
                         )}
 
                         {(selectedElement.element.type === 'video' || selectedElement.element.type === 'audio') && (
@@ -1305,22 +1198,18 @@ const App = () => {
                     {/* Link href */}
                     {selectedElement.element.type === 'a' && (
                       <div>
-                        <label className="block text-sm font-semibold mb-1">Href Key</label>
+                        <label className="block text-sm font-semibold mb-1">Link URL</label>
                         <input
                           type="text"
-                          value={selectedElement.element.hrefKey || ''}
+                          value={selectedElement.element.href || ''}
                           onChange={(e) => {
                             const newStructure = [...structure];
                             const element = getElementByPath(newStructure, selectedElement.path);
-                            element.hrefKey = e.target.value;
+                            element.href = e.target.value;
                             setStructure(newStructure);
-                            
-                            if (e.target.value && !defaultData[e.target.value]) {
-                              setDefaultData({ ...defaultData, [e.target.value]: '#' });
-                            }
                           }}
                           className="w-full px-3 py-2 border rounded text-sm"
-                          placeholder="e.g., buttonLink"
+                          placeholder="https://example.com"
                         />
                       </div>
                     )}

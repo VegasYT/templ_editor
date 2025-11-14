@@ -23,20 +23,32 @@ const JsonEditorModal = ({ isOpen, onClose, structure, editableStyles, defaultDa
       const parsed = JSON.parse(jsonText);
 
       // Validate structure
-      if (!parsed.structure || !Array.isArray(parsed.structure)) {
-        throw new Error('Invalid structure: must be an array');
+      if (!parsed.structure) {
+        throw new Error('Missing "structure" field');
+      }
+      if (!Array.isArray(parsed.structure)) {
+        throw new Error('Field "structure" must be an array');
       }
 
+      // Validate editableElements (optional)
       if (parsed.editableElements !== undefined && !Array.isArray(parsed.editableElements)) {
-        throw new Error('Invalid editableElements: must be an array');
+        throw new Error('Field "editableElements" must be an array if provided');
       }
 
-      if (!parsed.editableStyles || typeof parsed.editableStyles !== 'object') {
-        throw new Error('Invalid editableStyles: must be an object');
+      // Validate editableStyles
+      if (!parsed.editableStyles) {
+        throw new Error('Missing "editableStyles" field');
+      }
+      if (typeof parsed.editableStyles !== 'object' || Array.isArray(parsed.editableStyles)) {
+        throw new Error('Field "editableStyles" must be an object');
       }
 
-      if (!parsed.defaultData || typeof parsed.defaultData !== 'object') {
-        throw new Error('Invalid defaultData: must be an object');
+      // Validate defaultData
+      if (!parsed.defaultData) {
+        throw new Error('Missing "defaultData" field');
+      }
+      if (typeof parsed.defaultData !== 'object' || Array.isArray(parsed.defaultData)) {
+        throw new Error('Field "defaultData" must be an object');
       }
 
       onSave(parsed);

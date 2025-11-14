@@ -783,9 +783,10 @@ const App = () => {
     return (
       <div
         key={`dropzone-${zoneId}`}
-        className={`relative transition-all duration-200 ${
-          isHovered ? 'h-12' : 'h-2'
+        className={`relative transition-all duration-200 z-50 ${
+          isHovered ? 'h-16' : 'h-4'
         }`}
+        style={{pointerEvents: 'auto'}}
         onDragOver={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -1040,34 +1041,6 @@ const App = () => {
           >
             {content}
 
-            {/* Drop zone overlay for inserting inside container - appears when dragging */}
-            {hasChildren && element.children.length > 0 && (draggedItem || draggedElementType) && (
-              <div
-                className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity z-10 pointer-events-auto"
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  e.currentTarget.classList.add('bg-green-100/30', 'border-4', 'border-dashed', 'border-green-500');
-                }}
-                onDragLeave={(e) => {
-                  e.preventDefault();
-                  e.currentTarget.classList.remove('bg-green-100/30', 'border-4', 'border-dashed', 'border-green-500');
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  e.currentTarget.classList.remove('bg-green-100/30', 'border-4', 'border-dashed', 'border-green-500');
-
-                  // Insert at the end of children (last position)
-                  handleDropAtPosition(e, currentPath, element.children.length);
-                }}
-              >
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-green-600 text-white text-xs px-3 py-1.5 rounded-lg font-medium shadow-lg whitespace-nowrap pointer-events-none">
-                  📦 Вставить внутрь
-                </div>
-              </div>
-            )}
-
             {element.children && element.children.length > 0 && (
               <>
                 {/* Render children with drop zones ONLY before each */}
@@ -1078,7 +1051,7 @@ const App = () => {
                     {renderVisualElement(child, [...currentPath, index])}
                   </React.Fragment>
                 ))}
-                {/* Drop zone after last child */}
+                {/* Drop zone after last child - also serves as "insert inside container" */}
                 {renderDropZone(currentPath, element.children.length)}
               </>
             )}

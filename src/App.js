@@ -383,7 +383,7 @@ const App = () => {
     if (draggedElementType) {
       const newStructure = [...structure];
       const containerTypes = ['container', 'div', 'grid', 'ul', 'ol', 'button', 'a'];
-      const needsDataKey = !['container', 'div', 'grid', 'br', 'hr', 'ul', 'ol'].includes(draggedElementType);
+      const needsDataKey = !['container', 'div', 'grid', 'br', 'hr', 'ul', 'ol', 'img', 'video', 'audio', 'iframe'].includes(draggedElementType);
 
       const newElement = {
         type: draggedElementType,
@@ -393,11 +393,50 @@ const App = () => {
         dataKey: needsDataKey ? `${draggedElementType}_${Date.now()}` : undefined,
       };
 
-      // Add default data for media and text elements
+      // Add default data for text elements
       if (needsDataKey && newElement.dataKey) {
         setDefaultData({
           ...defaultData,
           [newElement.dataKey]: `Sample ${draggedElementType} text`
+        });
+      }
+
+      // Special handling for media elements
+      if (draggedElementType === 'img') {
+        newElement.srcKey = `image_${Date.now()}`;
+        newElement.altKey = `alt_${Date.now()}`;
+        setDefaultData({
+          ...defaultData,
+          [newElement.srcKey]: 'https://via.placeholder.com/800x600',
+          [newElement.altKey]: 'Image description'
+        });
+      } else if (draggedElementType === 'video' || draggedElementType === 'audio') {
+        newElement.srcKey = `${draggedElementType}_${Date.now()}`;
+        newElement.controls = true;
+        newElement.loop = false;
+        newElement.muted = false;
+        newElement.autoPlay = false;
+        if (draggedElementType === 'video') {
+          newElement.posterKey = `poster_${Date.now()}`;
+          setDefaultData({
+            ...defaultData,
+            [newElement.srcKey]: 'https://assets.mixkit.co/videos/preview/mixkit-tree-with-yellow-flowers-1173-large.mp4',
+            [newElement.posterKey]: 'https://via.placeholder.com/800x600'
+          });
+        } else {
+          setDefaultData({
+            ...defaultData,
+            [newElement.srcKey]: 'https://example.com/audio.mp3'
+          });
+        }
+      } else if (draggedElementType === 'iframe') {
+        newElement.srcKey = `iframe_${Date.now()}`;
+        newElement.titleKey = `title_${Date.now()}`;
+        newElement.allowFullScreen = true;
+        setDefaultData({
+          ...defaultData,
+          [newElement.srcKey]: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+          [newElement.titleKey]: 'Embedded content'
         });
       }
 

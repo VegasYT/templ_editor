@@ -295,17 +295,8 @@ const App = () => {
     const target = e.target;
     const dragHandle = target.closest('[data-drag-handle]');
 
-    // Allow drag if:
-    // 1. Started from drag handle OR
-    // 2. Started from the wrapper itself (not nested content)
-    const isWrapper = target === e.currentTarget;
-
-    // Check if target is text/content element that should be selectable
-    const textElements = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'SPAN', 'A', 'STRONG', 'EM', 'SMALL', 'BUTTON'];
-    const isTextElement = textElements.includes(target.tagName);
-
-    // Prevent drag if it's text content and not started from handle
-    if (isTextElement && !dragHandle && !isWrapper) {
+    // Only allow drag from handle - simple and clear like Elementor
+    if (!dragHandle) {
       e.preventDefault();
       return;
     }
@@ -314,7 +305,8 @@ const App = () => {
     setDraggedItem(path);
     setDraggedElementType(null);
     e.dataTransfer.effectAllowed = 'move';
-    // Add visual feedback - find the wrapper element
+
+    // Add visual feedback
     const wrapper = e.currentTarget;
     wrapper.style.opacity = '0.5';
   };
@@ -735,7 +727,7 @@ const App = () => {
           e.stopPropagation();
           setSelectedElement({ element, path: currentPath });
         }}
-        className={`relative group transition-all duration-200 ease-in-out cursor-grab active:cursor-grabbing ${
+        className={`relative group transition-all duration-200 ease-in-out ${
           isSelected ? 'ring-2 ring-blue-500 ring-offset-2 bg-blue-50' : ''
         } ${
           canAcceptDrop && !isDraggedOver ? 'hover:ring-1 hover:ring-gray-300 hover:shadow-sm hover:bg-gray-50' : ''
@@ -749,22 +741,22 @@ const App = () => {
           overflow: 'visible'
         }}
       >
-        {/* Element controls overlay */}
-        <div className="absolute top-0 left-0 right-0 opacity-0 group-hover:opacity-100 z-20 transition-opacity flex items-center justify-between gap-2 pointer-events-none">
-          {/* Left side - Drag handle and label */}
+        {/* Element controls overlay - Always visible like Elementor */}
+        <div className="absolute top-0 left-0 right-0 opacity-30 group-hover:opacity-100 z-20 transition-opacity flex items-center justify-between gap-2 pointer-events-none">
+          {/* Left side - Drag handle - ALWAYS visible for easy access */}
           <div
             data-drag-handle
-            className="flex items-center gap-1 bg-blue-500/90 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-br shadow-lg pointer-events-auto cursor-grab active:cursor-grabbing"
+            className="flex items-center gap-1 bg-blue-500/95 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-br shadow-md pointer-events-auto cursor-grab active:cursor-grabbing"
           >
-            <GripVertical size={12} />
-            <span className="font-medium select-none">
+            <GripVertical size={14} />
+            <span className="font-semibold select-none">
               {element.type}
               {hasChildren && ' (container)'}
             </span>
           </div>
 
-          {/* Right side - Quick actions */}
-          <div className="flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-bl shadow-lg overflow-hidden pointer-events-auto">
+          {/* Right side - Quick actions - visible on hover */}
+          <div className="flex items-center gap-1 bg-white/95 backdrop-blur-sm rounded-bl shadow-md overflow-hidden pointer-events-auto">
             <button
               onClick={(e) => {
                 e.stopPropagation();

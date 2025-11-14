@@ -707,6 +707,9 @@ const App = () => {
 
     const breadcrumb = buildBreadcrumb();
 
+    // Show breadcrumb only when handles might overlap (for nested non-container elements)
+    const shouldShowBreadcrumb = breadcrumb.length > 1 && element.type !== 'container';
+
     // Inline styles from element.styles
     const inlineStyles = {};
     if (element.styles) {
@@ -766,35 +769,53 @@ const App = () => {
           overflow: 'visible'
         }}
       >
-        {/* Element controls overlay - Breadcrumb handles */}
+        {/* Element controls overlay - Single handle or breadcrumb */}
         <div className="absolute top-0 left-0 right-0 opacity-30 group-hover:opacity-100 z-20 transition-opacity flex items-center justify-between gap-2 pointer-events-none">
-          {/* Left side - Breadcrumb handles from parent to child */}
+          {/* Left side - Breadcrumb handles (only when nested non-container) or single handle */}
           <div className="flex items-center gap-0.5 pointer-events-auto">
-            {breadcrumb.map((crumb, idx) => (
+            {shouldShowBreadcrumb ? (
+              // Show breadcrumb for nested elements where handles might overlap
+              breadcrumb.map((crumb, idx) => (
+                <div
+                  key={crumb.path.join('-')}
+                  data-drag-handle
+                  draggable
+                  onDragStart={(e) => {
+                    e.stopPropagation();
+                    handleDragStart(e, crumb.path);
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedElement({ element: crumb.element, path: crumb.path });
+                  }}
+                  className={`flex items-center gap-1 px-2 py-1 text-white text-xs font-semibold select-none cursor-grab active:cursor-grabbing transition-all ${
+                    idx === breadcrumb.length - 1
+                      ? 'bg-blue-600/95 backdrop-blur-sm rounded-br shadow-md' // Current element
+                      : 'bg-gray-600/90 backdrop-blur-sm hover:bg-gray-700/90' // Parent elements
+                  } ${idx === 0 ? 'rounded-tl' : ''}`}
+                  title={`Drag ${crumb.label}${crumb.element.children !== undefined ? ' (container)' : ''}`}
+                >
+                  <GripVertical size={12} />
+                  <span>{crumb.label}</span>
+                  {idx < breadcrumb.length - 1 && <span className="opacity-50">/</span>}
+                </div>
+              ))
+            ) : (
+              // Show single handle for containers and top-level elements
               <div
-                key={crumb.path.join('-')}
                 data-drag-handle
                 draggable
                 onDragStart={(e) => {
                   e.stopPropagation();
-                  handleDragStart(e, crumb.path);
+                  handleDragStart(e, currentPath);
                 }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedElement({ element: crumb.element, path: crumb.path });
-                }}
-                className={`flex items-center gap-1 px-2 py-1 text-white text-xs font-semibold select-none cursor-grab active:cursor-grabbing transition-all ${
-                  idx === breadcrumb.length - 1
-                    ? 'bg-blue-600/95 backdrop-blur-sm rounded-br shadow-md' // Current element
-                    : 'bg-gray-600/90 backdrop-blur-sm hover:bg-gray-700/90' // Parent elements
-                } ${idx === 0 ? 'rounded-tl' : ''}`}
-                title={`Drag ${crumb.label}${crumb.element.children !== undefined ? ' (container)' : ''}`}
+                className="flex items-center gap-1 px-2 py-1 bg-blue-600/95 backdrop-blur-sm rounded-tl rounded-br shadow-md text-white text-xs font-semibold select-none cursor-grab active:cursor-grabbing"
+                title={`Drag ${element.type}${hasChildren ? ' (container)' : ''}`}
               >
                 <GripVertical size={12} />
-                <span>{crumb.label}</span>
-                {idx < breadcrumb.length - 1 && <span className="opacity-50">/</span>}
+                <span>{element.type}</span>
               </div>
-            ))}
+            )}
           </div>
 
           {/* Right side - Quick actions - visible on hover */}

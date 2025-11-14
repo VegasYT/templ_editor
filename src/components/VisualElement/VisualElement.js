@@ -114,7 +114,8 @@ const VisualElement = ({
         minHeight: element.children ? '40px' : 'auto',
         overflow: 'visible',
         opacity: isDragging ? '0.4' : '1',
-        position: 'relative'
+        position: 'relative',
+        pointerEvents: 'none'
       }}
     >
       {/* Element controls overlay */}
@@ -189,7 +190,7 @@ const VisualElement = ({
       {isVoidElement ? (
         <ElementTag
           className={element.className || ''}
-          style={{...inlineStyles}}
+          style={{...inlineStyles, pointerEvents: 'auto'}}
           src={element.srcKey ? defaultData[element.srcKey] : undefined}
           alt={element.altKey ? defaultData[element.altKey] : undefined}
           onClick={(e) => {
@@ -200,7 +201,7 @@ const VisualElement = ({
       ) : (
         <ElementTag
           className={element.className || ''}
-          style={{...inlineStyles, position: 'relative'}}
+          style={{...inlineStyles, position: 'relative', pointerEvents: 'auto'}}
           src={element.srcKey ? defaultData[element.srcKey] : undefined}
           alt={element.altKey ? defaultData[element.altKey] : undefined}
           href={element.hrefKey ? defaultData[element.hrefKey] : undefined}
@@ -246,6 +247,7 @@ const VisualElement = ({
           {element.children && element.children.length === 0 && (
             <div
               className="text-gray-400 text-sm py-8 text-center border-2 border-dashed border-gray-300 rounded m-2 hover:bg-gray-100 hover:border-gray-400 transition-colors select-none"
+              style={{ pointerEvents: 'auto' }}
             >
               <div className="text-lg mb-1">📦</div>
               <div className="font-medium">Перетащите элементы сюда</div>

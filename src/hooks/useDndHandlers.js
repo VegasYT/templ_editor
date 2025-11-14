@@ -219,6 +219,23 @@ export const useDndHandlers = ({
 
     const elementCopy = JSON.parse(JSON.stringify(element));
 
+    // Get target parent BEFORE removing element (important for index stability)
+    let targetParent = null;
+    if (targetParentPath.length > 0) {
+      targetParent = getElementByPath(newStructure, targetParentPath);
+      if (!targetParent || !targetParent.children) {
+        console.error('Target parent not found or has no children');
+        return;
+      }
+    }
+
+    // Adjust insert index if moving within same parent
+    let adjustedIndex = insertIndex;
+    const sameParent = JSON.stringify(sourcePath.slice(0, -1)) === JSON.stringify(targetParentPath);
+    if (sameParent && sourcePath[sourcePath.length - 1] < insertIndex) {
+      adjustedIndex--;
+    }
+
     // Remove from old position
     if (sourcePath.length === 1) {
       newStructure.splice(sourcePath[0], 1);
@@ -230,21 +247,12 @@ export const useDndHandlers = ({
       }
     }
 
-    // Adjust insert index if moving within same parent
-    let adjustedIndex = insertIndex;
-    const sameParent = JSON.stringify(sourcePath.slice(0, -1)) === JSON.stringify(targetParentPath);
-    if (sameParent && sourcePath[sourcePath.length - 1] < insertIndex) {
-      adjustedIndex--;
-    }
-
-    // Insert at new position
+    // Insert at new position using the reference we got earlier
     if (targetParentPath.length === 0) {
       newStructure.splice(adjustedIndex, 0, elementCopy);
     } else {
-      const targetParent = getElementByPath(newStructure, targetParentPath);
-      if (targetParent && targetParent.children) {
-        targetParent.children.splice(adjustedIndex, 0, elementCopy);
-      }
+      // Use the reference we got before removing
+      targetParent.children.splice(adjustedIndex, 0, elementCopy);
     }
 
     setStructure(newStructure);

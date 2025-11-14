@@ -855,9 +855,7 @@ const App = () => {
     const currentPath = [...path];
     const pathStr = currentPath.join('-');
     const isSelected = selectedElement && JSON.stringify(selectedElement.path) === JSON.stringify(currentPath);
-    const isDraggedOver = dropTarget && JSON.stringify(dropTarget) === JSON.stringify(currentPath);
     const hasChildren = element.children !== undefined;
-    const canAcceptDrop = draggedItem || draggedElementType;
 
     // Build breadcrumb path for hierarchical handles
     const buildBreadcrumb = () => {
@@ -916,17 +914,12 @@ const App = () => {
     return (
       <div
         key={pathStr}
-        onDragOver={(e) => handleDragOver(e, currentPath)}
-        onDragLeave={handleDragLeave}
-        onDrop={(e) => handleDrop(e, currentPath)}
         onClick={(e) => {
           e.stopPropagation();
           setSelectedElement({ element, path: currentPath });
         }}
         className={`relative group transition-all duration-150 ease-in-out ${
           isSelected ? 'ring-2 ring-blue-500 ring-offset-2 bg-blue-50' : ''
-        } ${
-          canAcceptDrop && !isDraggedOver ? 'hover:ring-1 hover:ring-gray-300 hover:shadow-sm hover:bg-gray-50' : ''
         }`}
         style={{
           minHeight: element.children ? '40px' : 'auto',
@@ -1021,57 +1014,6 @@ const App = () => {
             </button>
           </div>
         </div>
-
-        {/* Drop indicators based on zone - Elementor-style with improved visibility */}
-        {isDraggedOver && dropZone === 'before' && (
-          <div className="absolute -top-2 left-0 right-0 z-40 pointer-events-none">
-            {/* Insertion line with animation */}
-            <div className="h-1 bg-blue-600 shadow-2xl relative animate-pulse">
-              {/* Circles at the ends */}
-              <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-3 h-3 bg-blue-600 rounded-full shadow-lg"></div>
-              <div className="absolute -right-1 top-1/2 -translate-y-1/2 w-3 h-3 bg-blue-600 rounded-full shadow-lg"></div>
-              {/* Center indicator */}
-              <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 w-4 h-4 bg-blue-600 rounded-full shadow-lg"></div>
-            </div>
-            {/* Label with icon */}
-            <div className="absolute -top-9 left-1/2 -translate-x-1/2 bg-gradient-to-r from-blue-600 to-blue-500 text-white text-sm px-4 py-2 rounded-lg font-semibold shadow-2xl whitespace-nowrap flex items-center gap-2 border-2 border-blue-400">
-              <span className="text-lg">↑</span>
-              <span>Вставить выше</span>
-            </div>
-          </div>
-        )}
-
-        {isDraggedOver && dropZone === 'after' && (
-          <div className="absolute -bottom-2 left-0 right-0 z-40 pointer-events-none">
-            {/* Insertion line with animation */}
-            <div className="h-1 bg-blue-600 shadow-2xl relative animate-pulse">
-              {/* Circles at the ends */}
-              <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-3 h-3 bg-blue-600 rounded-full shadow-lg"></div>
-              <div className="absolute -right-1 top-1/2 -translate-y-1/2 w-3 h-3 bg-blue-600 rounded-full shadow-lg"></div>
-              {/* Center indicator */}
-              <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 w-4 h-4 bg-blue-600 rounded-full shadow-lg"></div>
-            </div>
-            {/* Label with icon */}
-            <div className="absolute -bottom-9 left-1/2 -translate-x-1/2 bg-gradient-to-r from-blue-600 to-blue-500 text-white text-sm px-4 py-2 rounded-lg font-semibold shadow-2xl whitespace-nowrap flex items-center gap-2 border-2 border-blue-400">
-              <span className="text-lg">↓</span>
-              <span>Вставить ниже</span>
-            </div>
-          </div>
-        )}
-
-        {isDraggedOver && dropZone === 'inside' && (
-          <div className="absolute inset-0 z-40 pointer-events-none">
-            {/* Border overlay with animation */}
-            <div className="absolute inset-0 border-4 border-dashed border-green-500 bg-green-50/30 rounded-lg animate-pulse"></div>
-            {/* Inner glow */}
-            <div className="absolute inset-0 bg-gradient-to-br from-green-100/40 via-transparent to-green-100/40 rounded-lg"></div>
-            {/* Label */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gradient-to-r from-green-600 to-green-500 text-white text-sm px-6 py-3 rounded-xl font-semibold shadow-2xl flex items-center gap-3 border-2 border-green-400">
-              <span className="text-2xl">📦</span>
-              <span>Вставить внутрь контейнера</span>
-            </div>
-          </div>
-        )}
 
         {/* Render void elements without children */}
         {isVoidElement ? (

@@ -1740,6 +1740,107 @@ const App = () => {
                       </div>
                     )}
 
+                    {/* Media Element Properties */}
+                    {(selectedElement.element.type === 'img' ||
+                      selectedElement.element.type === 'video' ||
+                      selectedElement.element.type === 'audio' ||
+                      selectedElement.element.type === 'iframe') && (
+                      <div className="space-y-3 border-t pt-3">
+                        <h4 className="font-semibold text-sm text-blue-600">Media Properties</h4>
+
+                        <div>
+                          <label className="block text-sm font-semibold mb-1">
+                            {selectedElement.element.type === 'iframe' ? 'Iframe URL' : 'Source URL'}
+                          </label>
+                          <input
+                            type="text"
+                            value={selectedElement.element.src || ''}
+                            onChange={(e) => {
+                              const newStructure = [...structure];
+                              const element = getElementByPath(newStructure, selectedElement.path);
+                              element.src = e.target.value;
+                              setStructure(newStructure);
+                            }}
+                            className="w-full px-3 py-2 border rounded text-sm"
+                            placeholder="https://example.com/image.jpg"
+                          />
+                        </div>
+
+                        {selectedElement.element.type === 'img' && (
+                          <div>
+                            <label className="block text-sm font-semibold mb-1">Alt Text</label>
+                            <input
+                              type="text"
+                              value={selectedElement.element.alt || ''}
+                              onChange={(e) => {
+                                const newStructure = [...structure];
+                                const element = getElementByPath(newStructure, selectedElement.path);
+                                element.alt = e.target.value;
+                                setStructure(newStructure);
+                              }}
+                              className="w-full px-3 py-2 border rounded text-sm"
+                              placeholder="Image description"
+                            />
+                          </div>
+                        )}
+
+                        {selectedElement.element.type === 'video' && (
+                          <div>
+                            <label className="block text-sm font-semibold mb-1">Poster URL</label>
+                            <input
+                              type="text"
+                              value={selectedElement.element.poster || ''}
+                              onChange={(e) => {
+                                const newStructure = [...structure];
+                                const element = getElementByPath(newStructure, selectedElement.path);
+                                element.poster = e.target.value;
+                                setStructure(newStructure);
+                              }}
+                              className="w-full px-3 py-2 border rounded text-sm"
+                              placeholder="https://example.com/poster.jpg"
+                            />
+                          </div>
+                        )}
+
+                        {selectedElement.element.type === 'iframe' && (
+                          <div>
+                            <label className="block text-sm font-semibold mb-1">Title</label>
+                            <input
+                              type="text"
+                              value={selectedElement.element.title || ''}
+                              onChange={(e) => {
+                                const newStructure = [...structure];
+                                const element = getElementByPath(newStructure, selectedElement.path);
+                                element.title = e.target.value;
+                                setStructure(newStructure);
+                              }}
+                              className="w-full px-3 py-2 border rounded text-sm"
+                              placeholder="Embedded content"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Link href */}
+                    {selectedElement.element.type === 'a' && (
+                      <div className="border-t pt-3">
+                        <label className="block text-sm font-semibold mb-1">Link URL</label>
+                        <input
+                          type="text"
+                          value={selectedElement.element.href || ''}
+                          onChange={(e) => {
+                            const newStructure = [...structure];
+                            const element = getElementByPath(newStructure, selectedElement.path);
+                            element.href = e.target.value;
+                            setStructure(newStructure);
+                          }}
+                          className="w-full px-3 py-2 border rounded text-sm"
+                          placeholder="https://example.com"
+                        />
+                      </div>
+                    )}
+
                     <div className="border-t pt-3">
                       <label className="block text-sm font-semibold mb-1">Tailwind Classes</label>
                       <textarea

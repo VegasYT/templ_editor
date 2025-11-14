@@ -13,6 +13,7 @@ const App = () => {
   const [draggedItem, setDraggedItem] = useState(null);
   const [dropTarget, setDropTarget] = useState(null);
   const [draggedElementType, setDraggedElementType] = useState(null); // For dragging from left panel
+  const [previewStyles, setPreviewStyles] = useState({}); // For live preview of editable styles
 
   // Базовые элементы для добавления
   const elementTypes = [
@@ -535,7 +536,15 @@ const App = () => {
     if (element.styles) {
       Object.entries(element.styles).forEach(([cssProp, styleKey]) => {
         if (editableStyles[styleKey]) {
-          inlineStyles[cssProp] = editableStyles[styleKey].default;
+          const config = editableStyles[styleKey];
+          let value = previewStyles[styleKey] !== undefined ? previewStyles[styleKey] : config.default;
+
+          // Add unit for number/range types
+          if ((config.type === 'number' || config.type === 'range') && config.unit) {
+            value = `${value}${config.unit}`;
+          }
+
+          inlineStyles[cssProp] = value;
         }
       });
     }
@@ -580,7 +589,7 @@ const App = () => {
         )}
 
         {/* Drop zone indicator for containers */}
-        {hasChildren && (
+        {hasChildren && canAcceptDrop && (
           <div
             onDragOver={(e) => {
               e.preventDefault();
@@ -588,12 +597,12 @@ const App = () => {
               setDropTarget([...currentPath, 'inside']);
             }}
             onDrop={(e) => handleDropInside(e, currentPath)}
-            className={`absolute inset-0 pointer-events-auto transition-all ${
+            className={`absolute inset-0 transition-all ${
               isDropInsideTarget
-                ? 'bg-green-100 bg-opacity-80 border-4 border-dashed border-green-500 z-15'
-                : canAcceptDrop ? 'hover:bg-green-50 hover:border-2 hover:border-dashed hover:border-green-300' : ''
+                ? 'bg-green-100 bg-opacity-80 border-4 border-dashed border-green-500 pointer-events-auto'
+                : 'hover:bg-green-50 hover:border-2 hover:border-dashed hover:border-green-300 pointer-events-auto'
             }`}
-            style={{ zIndex: isDropInsideTarget ? 15 : 1 }}
+            style={{ zIndex: 50 }}
           >
             {isDropInsideTarget && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -1545,7 +1554,7 @@ const App = () => {
               </div>
             </div>
 
-            {/* Right Sidebar - Properties (same as builder mode) */}
+            {/* Right Sidebar - Properties and Live Preview */}
             <div className="w-96 bg-white border-l overflow-y-auto">
               <div className="p-4">
                 <h3 className="font-bold mb-3">Properties</h3>
@@ -1562,37 +1571,23 @@ const App = () => {
                       />
                     </div>
 
-                    {/* Data Key */}
+                    {/* Data Key and Preview Value */}
                     {selectedElement.element.dataKey !== undefined && (
                       <div>
-                        <label className="block text-sm font-semibold mb-1">Data Key</label>
+                        <label className="block text-sm font-semibold mb-1">Content</label>
                         <input
                           type="text"
-                          value={selectedElement.element.dataKey || ''}
+                          value={defaultData[selectedElement.element.dataKey] || ''}
                           onChange={(e) => {
-                            const oldKey = selectedElement.element.dataKey;
-                            const newKey = e.target.value;
-
-                            const newStructure = [...structure];
-                            const element = getElementByPath(newStructure, selectedElement.path);
-                            element.dataKey = newKey;
-                            setStructure(newStructure);
-
-                            // Update defaultData
-                            if (newKey) {
-                              const newData = { ...defaultData };
-                              if (oldKey && oldKey !== newKey) {
-                                newData[newKey] = newData[oldKey] || 'Sample text';
-                                delete newData[oldKey];
-                              } else if (!oldKey) {
-                                newData[newKey] = 'Sample text';
-                              }
-                              setDefaultData(newData);
-                            }
+                            setDefaultData({
+                              ...defaultData,
+                              [selectedElement.element.dataKey]: e.target.value
+                            });
                           }}
                           className="w-full px-3 py-2 border rounded text-sm"
-                          placeholder="e.g., title, subtitle"
+                          placeholder="Enter content..."
                         />
+                        <p className="text-xs text-gray-500 mt-1">Key: {selectedElement.element.dataKey}</p>
                       </div>
                     )}
 
@@ -1611,6 +1606,115 @@ const App = () => {
                   <div className="text-center py-12">
                     <Eye size={48} className="mx-auto text-gray-300 mb-3" />
                     <p className="text-gray-500 text-sm">Выберите элемент для редактирования</p>
+                  </div>
+                )}
+
+                {/* Live Preview Controls */}
+                {Object.keys(editableStyles).length > 0 && (
+                  <div className="border-t pt-4 mt-4">
+                    <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                      <Settings size={16} />
+                      Live Preview Controls
+                    </h4>
+                    <p className="text-xs text-gray-600 mb-3">
+                      Настройте стили как это сделал бы пользователь
+                    </p>
+                    <div className="space-y-3">
+                      {Object.entries(editableStyles).map(([key, config]) => (
+                        <div key={key} className="border rounded p-3 bg-gray-50">
+                          <label className="block text-xs font-semibold mb-2 text-purple-700">
+                            {config.label || key}
+                          </label>
+
+                          {config.type === 'color' && (
+                            <div className="flex gap-2">
+                              <input
+                                type="color"
+                                value={previewStyles[key] || config.default}
+                                onChange={(e) => setPreviewStyles({ ...previewStyles, [key]: e.target.value })}
+                                className="w-12 h-10 border rounded cursor-pointer"
+                              />
+                              <input
+                                type="text"
+                                value={previewStyles[key] || config.default}
+                                onChange={(e) => setPreviewStyles({ ...previewStyles, [key]: e.target.value })}
+                                className="flex-1 px-2 py-1 border rounded text-xs font-mono"
+                              />
+                            </div>
+                          )}
+
+                          {config.type === 'text' && (
+                            <input
+                              type="text"
+                              value={previewStyles[key] || config.default}
+                              onChange={(e) => setPreviewStyles({ ...previewStyles, [key]: e.target.value })}
+                              placeholder={config.placeholder}
+                              className="w-full px-2 py-1 border rounded text-xs"
+                            />
+                          )}
+
+                          {config.type === 'number' && (
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                value={previewStyles[key] !== undefined ? previewStyles[key] : config.default}
+                                onChange={(e) => setPreviewStyles({ ...previewStyles, [key]: e.target.value })}
+                                min={config.min}
+                                max={config.max}
+                                step={config.step}
+                                className="flex-1 px-2 py-1 border rounded text-xs"
+                              />
+                              {config.unit && <span className="text-xs text-gray-600">{config.unit}</span>}
+                            </div>
+                          )}
+
+                          {config.type === 'range' && (
+                            <div className="space-y-1">
+                              <input
+                                type="range"
+                                value={previewStyles[key] !== undefined ? previewStyles[key] : config.default}
+                                onChange={(e) => setPreviewStyles({ ...previewStyles, [key]: e.target.value })}
+                                min={config.min}
+                                max={config.max}
+                                step={config.step}
+                                className="w-full"
+                              />
+                              <div className="flex justify-between text-xs text-gray-600">
+                                <span>{config.min}</span>
+                                <span className="font-semibold">
+                                  {previewStyles[key] !== undefined ? previewStyles[key] : config.default}
+                                  {config.unit}
+                                </span>
+                                <span>{config.max}</span>
+                              </div>
+                            </div>
+                          )}
+
+                          {config.type === 'select' && (
+                            <select
+                              value={previewStyles[key] || config.default}
+                              onChange={(e) => setPreviewStyles({ ...previewStyles, [key]: e.target.value })}
+                              className="w-full px-2 py-1 border rounded text-xs"
+                            >
+                              {config.options?.map(option => (
+                                <option key={option} value={option}>{option}</option>
+                              ))}
+                            </select>
+                          )}
+
+                          <button
+                            onClick={() => {
+                              const newPreview = { ...previewStyles };
+                              delete newPreview[key];
+                              setPreviewStyles(newPreview);
+                            }}
+                            className="mt-2 text-xs text-blue-600 hover:text-blue-800"
+                          >
+                            Reset to default
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

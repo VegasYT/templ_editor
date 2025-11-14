@@ -358,11 +358,11 @@ const App = () => {
       if (isEmpty) {
         setDropZone('inside');
       } else {
-        // For non-empty containers: divide into 3 zones
-        // before: first 35%, inside: middle 30%, after: last 35%
-        if (y < height * 0.35) {
+        // For non-empty containers: divide into 3 zones with generous 'inside' zone
+        // before: first 25%, inside: middle 50%, after: last 25%
+        if (y < height * 0.25) {
           setDropZone('before');
-        } else if (y > height * 0.65) {
+        } else if (y > height * 0.75) {
           setDropZone('after');
         } else {
           setDropZone('inside');

@@ -292,23 +292,10 @@ const App = () => {
 
   // Drag and drop handlers
   const handleDragStart = (e, path) => {
-    const target = e.target;
-    const dragHandle = target.closest('[data-drag-handle]');
-
-    // Only allow drag from handle - simple and clear like Elementor
-    if (!dragHandle) {
-      e.preventDefault();
-      return;
-    }
-
     e.stopPropagation();
     setDraggedItem(path);
     setDraggedElementType(null);
     e.dataTransfer.effectAllowed = 'move';
-
-    // Add visual feedback
-    const wrapper = e.currentTarget;
-    wrapper.style.opacity = '0.5';
   };
 
   // Drag start for new elements from left panel
@@ -707,8 +694,8 @@ const App = () => {
 
     const breadcrumb = buildBreadcrumb();
 
-    // Show breadcrumb only when handles might overlap (for nested non-container elements)
-    const shouldShowBreadcrumb = breadcrumb.length > 1 && element.type !== 'container';
+    // Show breadcrumb only when nested inside another element (not for top-level)
+    const shouldShowBreadcrumb = breadcrumb.length > 1;
 
     // Inline styles from element.styles
     const inlineStyles = {};
@@ -739,18 +726,9 @@ const App = () => {
     return (
       <div
         key={pathStr}
-        draggable
-        onDragStart={(e) => handleDragStart(e, currentPath)}
         onDragOver={(e) => handleDragOver(e, currentPath)}
         onDragLeave={handleDragLeave}
         onDrop={(e) => handleDrop(e, currentPath)}
-        onDragEnd={(e) => {
-          // Restore opacity on drag end
-          e.currentTarget.style.opacity = '1';
-          setDraggedItem(null);
-          setDropTarget(null);
-          setDropZone(null);
-        }}
         onClick={(e) => {
           e.stopPropagation();
           setSelectedElement({ element, path: currentPath });
@@ -784,6 +762,12 @@ const App = () => {
                     e.stopPropagation();
                     handleDragStart(e, crumb.path);
                   }}
+                  onDragEnd={(e) => {
+                    e.stopPropagation();
+                    setDraggedItem(null);
+                    setDropTarget(null);
+                    setDropZone(null);
+                  }}
                   onClick={(e) => {
                     e.stopPropagation();
                     setSelectedElement({ element: crumb.element, path: crumb.path });
@@ -808,6 +792,12 @@ const App = () => {
                 onDragStart={(e) => {
                   e.stopPropagation();
                   handleDragStart(e, currentPath);
+                }}
+                onDragEnd={(e) => {
+                  e.stopPropagation();
+                  setDraggedItem(null);
+                  setDropTarget(null);
+                  setDropZone(null);
                 }}
                 className="flex items-center gap-1 px-2 py-1 bg-blue-600/95 backdrop-blur-sm rounded-tl rounded-br shadow-md text-white text-xs font-semibold select-none cursor-grab active:cursor-grabbing"
                 title={`Drag ${element.type}${hasChildren ? ' (container)' : ''}`}

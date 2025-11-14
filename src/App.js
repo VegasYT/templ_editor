@@ -16,6 +16,7 @@ const App = () => {
   const [draggedElementType, setDraggedElementType] = useState(null); // For dragging from left panel
   const [previewStyles, setPreviewStyles] = useState({}); // For live preview of editable styles
   const [previewMode, setPreviewMode] = useState('desktop'); // desktop, tablet, mobile
+  const [hoveredDropZone, setHoveredDropZone] = useState(null); // For explicit drop zones between elements
 
   // Базовые элементы для добавления
   const elementTypes = [
@@ -340,26 +341,37 @@ const App = () => {
     const hasChildren = element.children !== undefined;
     const isEmpty = hasChildren && element.children.length === 0;
 
-    // Use fixed pixel zones for better predictability
-    const EDGE_ZONE_SIZE = 30; // pixels for before/after zones
-
+    // Simplified drop zone logic - clear and predictable (like Elementor/Puck)
     if (hasChildren) {
-      // For empty containers: entire area is 'inside' zone for easier dropping
+      // For empty containers: entire area is 'inside' zone
       if (isEmpty) {
         setDropZone('inside');
       } else {
-        // For non-empty containers: use fixed pixel zones at edges
-        // This prevents huge before/after zones when container has lots of content
-        if (y < EDGE_ZONE_SIZE) {
+        // For non-empty containers: percentage-based with minimum pixel thresholds
+        // This ensures even small containers have usable before/after zones
+        const MIN_ZONE_SIZE = 25; // minimum pixels for a zone
+
+        // Calculate zone sizes: prefer 30/40/30 split, but ensure minimum sizes
+        let topZoneSize = Math.max(MIN_ZONE_SIZE, height * 0.30);
+        let bottomZoneSize = Math.max(MIN_ZONE_SIZE, height * 0.30);
+
+        // If element is very small, adjust percentages
+        if (height < 100) {
+          // For small elements, use larger percentage for before/after
+          topZoneSize = Math.max(MIN_ZONE_SIZE, height * 0.35);
+          bottomZoneSize = Math.max(MIN_ZONE_SIZE, height * 0.35);
+        }
+
+        if (y < topZoneSize) {
           setDropZone('before');
-        } else if (y > height - EDGE_ZONE_SIZE) {
+        } else if (y > height - bottomZoneSize) {
           setDropZone('after');
         } else {
           setDropZone('inside');
         }
       }
     } else {
-      // For non-containers: divide into 2 zones (50/50)
+      // For non-containers: simple 50/50 split
       if (y < height * 0.5) {
         setDropZone('before');
       } else {
@@ -660,14 +672,196 @@ const App = () => {
     }
   };
 
+  // Handle drop at explicit position (for drop zones)
+  const handleDropAtPosition = (e, parentPath, insertIndex) => {
+    // If dropping a new element from left panel
+    if (draggedElementType) {
+      const newStructure = [...structure];
+      const containerTypes = ['container', 'div', 'grid', 'ul', 'ol', 'button', 'a'];
+      const needsDataKey = !['container', 'div', 'grid', 'br', 'hr', 'ul', 'ol', 'img', 'video', 'audio', 'iframe'].includes(draggedElementType);
+
+      const newElement = {
+        type: draggedElementType,
+        className: getDefaultClasses(draggedElementType),
+        styles: {},
+        children: containerTypes.includes(draggedElementType) ? [] : undefined,
+        dataKey: needsDataKey ? `${draggedElementType}_${Date.now()}` : undefined,
+      };
+
+      // Add default data for text elements
+      if (needsDataKey && newElement.dataKey) {
+        setDefaultData({
+          ...defaultData,
+          [newElement.dataKey]: `Sample ${draggedElementType} text`
+        });
+      }
+
+      // Special handling for media elements
+      if (draggedElementType === 'img') {
+        newElement.srcKey = `image_${Date.now()}`;
+        newElement.altKey = `alt_${Date.now()}`;
+        setDefaultData({
+          ...defaultData,
+          [newElement.srcKey]: 'https://via.placeholder.com/800x600',
+          [newElement.altKey]: 'Image description'
+        });
+      }
+
+      // Insert at the specified position
+      if (parentPath.length === 0) {
+        // Top level
+        newStructure.splice(insertIndex, 0, newElement);
+      } else {
+        // Inside a container
+        const parent = getElementByPath(newStructure, parentPath);
+        if (parent && parent.children) {
+          parent.children.splice(insertIndex, 0, newElement);
+        }
+      }
+
+      setStructure(newStructure);
+      setDraggedElementType(null);
+      return;
+    }
+
+    // If moving an existing element
+    if (draggedItem) {
+      const newStructure = [...structure];
+
+      // Get dragged element
+      const draggedElement = getElementByPath(newStructure, draggedItem);
+      if (!draggedElement) {
+        console.error('Dragged element not found');
+        setDraggedItem(null);
+        return;
+      }
+      const draggedElementCopy = JSON.parse(JSON.stringify(draggedElement));
+
+      // Remove from old position
+      if (draggedItem.length === 1) {
+        newStructure.splice(draggedItem[0], 1);
+      } else {
+        const dragParentPath = draggedItem.slice(0, -1);
+        const dragParent = getElementByPath(newStructure, dragParentPath);
+        if (dragParent && dragParent.children) {
+          dragParent.children.splice(draggedItem[draggedItem.length - 1], 1);
+        }
+      }
+
+      // Adjust insert index if dragging within same parent
+      let adjustedIndex = insertIndex;
+      const sameParent = JSON.stringify(draggedItem.slice(0, -1)) === JSON.stringify(parentPath);
+      if (sameParent && draggedItem[draggedItem.length - 1] < insertIndex) {
+        adjustedIndex--;
+      }
+
+      // Insert at new position
+      if (parentPath.length === 0) {
+        // Top level
+        newStructure.splice(adjustedIndex, 0, draggedElementCopy);
+      } else {
+        // Inside a container
+        const parent = getElementByPath(newStructure, parentPath);
+        if (parent && parent.children) {
+          parent.children.splice(adjustedIndex, 0, draggedElementCopy);
+        }
+      }
+
+      setStructure(newStructure);
+      setDraggedItem(null);
+    }
+  };
+
+  // Explicit Drop Zone component - renders between elements
+  const renderDropZone = (parentPath, insertIndex) => {
+    const zoneId = `${parentPath.join('-')}-insert-${insertIndex}`;
+    const isDragging = draggedItem || draggedElementType;
+    const isHovered = hoveredDropZone === zoneId;
+
+    if (!isDragging) return null;
+
+    return (
+      <div
+        key={`dropzone-${zoneId}`}
+        className={`transition-all duration-200 ${
+          isHovered ? 'h-16 z-[9999]' : 'h-8 z-[9999]'
+        }`}
+        style={{
+          pointerEvents: 'auto',
+          position: 'relative',
+          marginTop: isHovered ? '-8px' : '-4px',
+          marginBottom: isHovered ? '-8px' : '-4px'
+        }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setHoveredDropZone(zoneId);
+          // Store the insert position for later
+          e.currentTarget.dataset.insertIndex = insertIndex;
+          e.currentTarget.dataset.parentPath = JSON.stringify(parentPath);
+        }}
+        onDragLeave={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const rect = e.currentTarget.getBoundingClientRect();
+          const x = e.clientX;
+          const y = e.clientY;
+          const isOutside = x < rect.left || x > rect.right || y < rect.top || y > rect.bottom;
+          if (isOutside) {
+            setHoveredDropZone(null);
+          }
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+
+          // Handle drop logic with explicit insert position
+          const insertIdx = parseInt(e.currentTarget.dataset.insertIndex);
+          const parent = JSON.parse(e.currentTarget.dataset.parentPath);
+
+          handleDropAtPosition(e, parent, insertIdx);
+          setHoveredDropZone(null);
+        }}
+      >
+        {/* Drop zone indicator */}
+        <div className={`absolute inset-0 flex items-center justify-center transition-all duration-200 ${
+          isHovered ? 'opacity-100' : 'opacity-30 hover:opacity-70'
+        }`}>
+          {/* Line */}
+          <div className={`w-full transition-all duration-200 ${
+            isHovered ? 'h-1 bg-blue-600' : 'h-0.5 bg-blue-400'
+          } relative`}>
+            {/* Dots at the ends */}
+            <div className={`absolute left-0 top-1/2 -translate-y-1/2 rounded-full bg-blue-600 transition-all duration-200 ${
+              isHovered ? 'w-3 h-3' : 'w-2 h-2'
+            }`}></div>
+            <div className={`absolute right-0 top-1/2 -translate-y-1/2 rounded-full bg-blue-600 transition-all duration-200 ${
+              isHovered ? 'w-3 h-3' : 'w-2 h-2'
+            }`}></div>
+            {/* Center dot */}
+            {isHovered && (
+              <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-blue-600 flex items-center justify-center">
+                <div className="w-2 h-2 rounded-full bg-white"></div>
+              </div>
+            )}
+          </div>
+          {/* Label when hovered */}
+          {isHovered && (
+            <div className="absolute left-1/2 -translate-x-1/2 -top-8 bg-blue-600 text-white text-xs px-3 py-1.5 rounded-lg font-medium shadow-lg whitespace-nowrap">
+              Вставить сюда
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   // Visual rendering of elements
   const renderVisualElement = (element, path = []) => {
     const currentPath = [...path];
     const pathStr = currentPath.join('-');
     const isSelected = selectedElement && JSON.stringify(selectedElement.path) === JSON.stringify(currentPath);
-    const isDraggedOver = dropTarget && JSON.stringify(dropTarget) === JSON.stringify(currentPath);
     const hasChildren = element.children !== undefined;
-    const canAcceptDrop = draggedItem || draggedElementType;
 
     // Build breadcrumb path for hierarchical handles
     const buildBreadcrumb = () => {
@@ -726,25 +920,14 @@ const App = () => {
     return (
       <div
         key={pathStr}
-        onDragOver={(e) => handleDragOver(e, currentPath)}
-        onDragLeave={handleDragLeave}
-        onDrop={(e) => handleDrop(e, currentPath)}
-        onClick={(e) => {
-          e.stopPropagation();
-          setSelectedElement({ element, path: currentPath });
-        }}
-        className={`relative group transition-all duration-200 ease-in-out ${
+        className={`group transition-all duration-150 ease-in-out pointer-events-none ${
           isSelected ? 'ring-2 ring-blue-500 ring-offset-2 bg-blue-50' : ''
-        } ${
-          canAcceptDrop && !isDraggedOver ? 'hover:ring-1 hover:ring-gray-300 hover:shadow-sm hover:bg-gray-50' : ''
-        } ${
-          isDraggedOver ? 'shadow-xl scale-[1.02]' : ''
         }`}
         style={{
           minHeight: element.children ? '40px' : 'auto',
-          marginBottom: isDraggedOver && dropZone === 'after' ? '16px' : '0',
-          marginTop: isDraggedOver && dropZone === 'before' ? '16px' : '0',
-          overflow: 'visible'
+          overflow: 'visible',
+          opacity: draggedItem && JSON.stringify(draggedItem) === JSON.stringify(currentPath) ? '0.4' : '1',
+          position: 'relative'
         }}
       >
         {/* Element controls overlay - Single handle or breadcrumb */}
@@ -767,6 +950,7 @@ const App = () => {
                     setDraggedItem(null);
                     setDropTarget(null);
                     setDropZone(null);
+                    setHoveredDropZone(null);
                   }}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -798,6 +982,7 @@ const App = () => {
                   setDraggedItem(null);
                   setDropTarget(null);
                   setDropZone(null);
+                  setHoveredDropZone(null);
                 }}
                 className="flex items-center gap-1 px-2 py-1 bg-blue-600/95 backdrop-blur-sm rounded-tl rounded-br shadow-md text-white text-xs font-semibold select-none cursor-grab active:cursor-grabbing"
                 title={`Drag ${element.type}${hasChildren ? ' (container)' : ''}`}
@@ -833,44 +1018,22 @@ const App = () => {
           </div>
         </div>
 
-        {/* Drop indicators based on zone - Improved version */}
-        {isDraggedOver && dropZone === 'before' && (
-          <div className="absolute -top-2 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 via-blue-500 to-blue-400 z-30 shadow-lg animate-pulse">
-            <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-gradient-to-r from-blue-600 to-blue-500 text-white text-xs px-4 py-1.5 rounded-full font-semibold shadow-xl whitespace-nowrap border-2 border-blue-300 flex items-center gap-1">
-              <span className="text-base">↑</span> Вставить перед
-            </div>
-          </div>
-        )}
-
-        {isDraggedOver && dropZone === 'after' && (
-          <div className="absolute -bottom-2 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 via-blue-500 to-blue-400 z-30 shadow-lg animate-pulse">
-            <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-gradient-to-r from-blue-600 to-blue-500 text-white text-xs px-4 py-1.5 rounded-full font-semibold shadow-xl whitespace-nowrap border-2 border-blue-300 flex items-center gap-1">
-              <span className="text-base">↓</span> Вставить после
-            </div>
-          </div>
-        )}
-
-        {isDraggedOver && dropZone === 'inside' && (
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-100 via-green-100 to-teal-100 border-4 border-dashed border-emerald-500 rounded-lg z-30 flex items-center justify-center pointer-events-none backdrop-blur-sm animate-pulse">
-            <div className="bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 text-white text-sm px-6 py-3 rounded-full font-bold shadow-2xl border-2 border-emerald-300 flex items-center gap-2">
-              <span className="text-lg">📦</span>
-              <span>Вставить внутрь контейнера</span>
-            </div>
-          </div>
-        )}
-
         {/* Render void elements without children */}
         {isVoidElement ? (
           <ElementTag
             className={element.className || ''}
-            style={inlineStyles}
+            style={{...inlineStyles, pointerEvents: 'auto'}}
             src={element.srcKey ? defaultData[element.srcKey] : undefined}
             alt={element.altKey ? defaultData[element.altKey] : undefined}
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedElement({ element, path: currentPath });
+            }}
           />
         ) : (
           <ElementTag
             className={element.className || ''}
-            style={inlineStyles}
+            style={{...inlineStyles, position: 'relative', pointerEvents: 'auto'}}
             src={element.srcKey ? defaultData[element.srcKey] : undefined}
             alt={element.altKey ? defaultData[element.altKey] : undefined}
             href={element.hrefKey ? defaultData[element.hrefKey] : undefined}
@@ -881,13 +1044,42 @@ const App = () => {
             muted={element.muted}
             autoPlay={element.autoPlay}
             allowFullScreen={element.allowFullScreen}
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedElement({ element, path: currentPath });
+            }}
           >
             {content}
-            {element.children && element.children.map((child, index) =>
-              renderVisualElement(child, [...currentPath, index])
+
+            {element.children && element.children.length > 0 && (
+              <>
+                {/* Render children with drop zones ONLY before each */}
+                {element.children.map((child, index) => (
+                  <React.Fragment key={`${currentPath.join('-')}-${index}`}>
+                    {/* Drop zone before each child */}
+                    {renderDropZone(currentPath, index)}
+                    {renderVisualElement(child, [...currentPath, index])}
+                  </React.Fragment>
+                ))}
+                {/* Drop zone after last child - also serves as "insert inside container" */}
+                {renderDropZone(currentPath, element.children.length)}
+              </>
             )}
             {element.children && element.children.length === 0 && (
-              <div className="text-gray-400 text-sm py-8 text-center border-2 border-dashed border-gray-300 rounded m-2 hover:bg-gray-100 hover:border-gray-400 transition-colors pointer-events-none select-none">
+              <div
+                className="text-gray-400 text-sm py-8 text-center border-2 border-dashed border-gray-300 rounded m-2 hover:bg-gray-100 hover:border-gray-400 transition-colors select-none"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setDropTarget(currentPath);
+                  setDropZone('inside');
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleDrop(e, currentPath);
+                }}
+              >
                 <div className="text-lg mb-1">📦</div>
                 <div className="font-medium">Перетащите элементы сюда</div>
                 <div className="text-xs mt-1 opacity-75">или используйте кнопку +</div>
@@ -1877,8 +2069,17 @@ const App = () => {
                       <p className="text-gray-400 text-sm">Перетащите элементы из левой панели или нажмите на них</p>
                     </div>
                   ) : (
-                    <div className="space-y-2">
-                      {structure.map((element, index) => renderVisualElement(element, [index]))}
+                    <div className="space-y-0">
+                      {/* Render top-level elements with drop zones ONLY before each */}
+                      {structure.map((element, index) => (
+                        <React.Fragment key={`root-${index}`}>
+                          {/* Drop zone before each element */}
+                          {renderDropZone([], index)}
+                          {renderVisualElement(element, [index])}
+                        </React.Fragment>
+                      ))}
+                      {/* Drop zone after last element */}
+                      {renderDropZone([], structure.length)}
                     </div>
                   )}
                 </div>

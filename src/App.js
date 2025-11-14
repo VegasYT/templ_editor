@@ -72,28 +72,50 @@ const App = () => {
 
     // Дополнительные поля для медиа элементов
     if (type === 'img') {
-      newElement.src = 'https://via.placeholder.com/800x600';
-      newElement.alt = 'Image description';
+      newElement.srcKey = `image_${Date.now()}`;
+      newElement.altKey = `alt_${Date.now()}`;
+      setDefaultData({
+        ...defaultData,
+        [newElement.srcKey]: 'https://via.placeholder.com/800x600',
+        [newElement.altKey]: 'Image description'
+      });
     }
     if (type === 'video' || type === 'audio') {
-      newElement.src = type === 'video'
-        ? 'https://assets.mixkit.co/videos/preview/mixkit-tree-with-yellow-flowers-1173-large.mp4'
-        : 'https://example.com/audio.mp3';
+      newElement.srcKey = `${type}_${Date.now()}`;
       newElement.controls = true;
       newElement.loop = false;
       newElement.muted = false;
       newElement.autoPlay = false;
       if (type === 'video') {
-        newElement.poster = 'https://via.placeholder.com/1920x1080';
+        newElement.posterKey = `poster_${Date.now()}`;
+        setDefaultData({
+          ...defaultData,
+          [newElement.srcKey]: 'https://assets.mixkit.co/videos/preview/mixkit-tree-with-yellow-flowers-1173-large.mp4',
+          [newElement.posterKey]: 'https://via.placeholder.com/1920x1080'
+        });
+      } else {
+        setDefaultData({
+          ...defaultData,
+          [newElement.srcKey]: 'https://example.com/audio.mp3'
+        });
       }
     }
     if (type === 'iframe') {
-      newElement.src = 'https://www.youtube.com/embed/dQw4w9WgXcQ';
-      newElement.title = 'Embedded content';
+      newElement.srcKey = `iframe_${Date.now()}`;
+      newElement.titleKey = `title_${Date.now()}`;
       newElement.allowFullScreen = true;
+      setDefaultData({
+        ...defaultData,
+        [newElement.srcKey]: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+        [newElement.titleKey]: 'Embedded content'
+      });
     }
     if (type === 'a') {
-      newElement.href = '#';
+      newElement.hrefKey = `link_${Date.now()}`;
+      setDefaultData({
+        ...defaultData,
+        [newElement.hrefKey]: '#'
+      });
     }
 
     // Добавление defaultData для текстовых элементов
@@ -381,23 +403,41 @@ const App = () => {
 
       // Special handling for media elements
       if (draggedElementType === 'img') {
-        newElement.src = 'https://via.placeholder.com/800x600';
-        newElement.alt = 'Image description';
+        newElement.srcKey = `image_${Date.now()}`;
+        newElement.altKey = `alt_${Date.now()}`;
+        setDefaultData({
+          ...defaultData,
+          [newElement.srcKey]: 'https://via.placeholder.com/800x600',
+          [newElement.altKey]: 'Image description'
+        });
       } else if (draggedElementType === 'video' || draggedElementType === 'audio') {
-        newElement.src = draggedElementType === 'video'
-          ? 'https://assets.mixkit.co/videos/preview/mixkit-tree-with-yellow-flowers-1173-large.mp4'
-          : 'https://example.com/audio.mp3';
+        newElement.srcKey = `${draggedElementType}_${Date.now()}`;
         newElement.controls = true;
         newElement.loop = false;
         newElement.muted = false;
         newElement.autoPlay = false;
         if (draggedElementType === 'video') {
-          newElement.poster = 'https://via.placeholder.com/800x600';
+          newElement.posterKey = `poster_${Date.now()}`;
+          setDefaultData({
+            ...defaultData,
+            [newElement.srcKey]: 'https://assets.mixkit.co/videos/preview/mixkit-tree-with-yellow-flowers-1173-large.mp4',
+            [newElement.posterKey]: 'https://via.placeholder.com/800x600'
+          });
+        } else {
+          setDefaultData({
+            ...defaultData,
+            [newElement.srcKey]: 'https://example.com/audio.mp3'
+          });
         }
       } else if (draggedElementType === 'iframe') {
-        newElement.src = 'https://www.youtube.com/embed/dQw4w9WgXcQ';
-        newElement.title = 'Embedded content';
+        newElement.srcKey = `iframe_${Date.now()}`;
+        newElement.titleKey = `title_${Date.now()}`;
         newElement.allowFullScreen = true;
+        setDefaultData({
+          ...defaultData,
+          [newElement.srcKey]: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+          [newElement.titleKey]: 'Embedded content'
+        });
       }
 
       // Add based on drop zone
@@ -708,18 +748,18 @@ const App = () => {
           <ElementTag
             className={element.className || ''}
             style={inlineStyles}
-            src={element.src}
-            alt={element.alt}
+            src={element.srcKey ? defaultData[element.srcKey] : undefined}
+            alt={element.altKey ? defaultData[element.altKey] : undefined}
           />
         ) : (
           <ElementTag
             className={element.className || ''}
             style={inlineStyles}
-            src={element.src}
-            alt={element.alt}
-            href={element.href}
-            poster={element.poster}
-            title={element.title}
+            src={element.srcKey ? defaultData[element.srcKey] : undefined}
+            alt={element.altKey ? defaultData[element.altKey] : undefined}
+            href={element.hrefKey ? defaultData[element.hrefKey] : undefined}
+            poster={element.posterKey ? defaultData[element.posterKey] : undefined}
+            title={element.titleKey ? defaultData[element.titleKey] : undefined}
             controls={element.controls}
             loop={element.loop}
             muted={element.muted}
@@ -1741,10 +1781,7 @@ const App = () => {
                     )}
 
                     {/* Media Element Properties */}
-                    {(selectedElement.element.type === 'img' ||
-                      selectedElement.element.type === 'video' ||
-                      selectedElement.element.type === 'audio' ||
-                      selectedElement.element.type === 'iframe') && (
+                    {selectedElement.element.srcKey && (
                       <div className="space-y-3 border-t pt-3">
                         <h4 className="font-semibold text-sm text-blue-600">Media Properties</h4>
 
@@ -1754,90 +1791,95 @@ const App = () => {
                           </label>
                           <input
                             type="text"
-                            value={selectedElement.element.src || ''}
+                            value={defaultData[selectedElement.element.srcKey] || ''}
                             onChange={(e) => {
-                              const newStructure = [...structure];
-                              const element = getElementByPath(newStructure, selectedElement.path);
-                              element.src = e.target.value;
-                              setStructure(newStructure);
+                              setDefaultData({
+                                ...defaultData,
+                                [selectedElement.element.srcKey]: e.target.value
+                              });
                             }}
                             className="w-full px-3 py-2 border rounded text-sm"
                             placeholder="https://example.com/image.jpg"
                           />
+                          <p className="text-xs text-gray-500 mt-1">Key: {selectedElement.element.srcKey}</p>
                         </div>
 
-                        {selectedElement.element.type === 'img' && (
+                        {selectedElement.element.altKey && (
                           <div>
                             <label className="block text-sm font-semibold mb-1">Alt Text</label>
                             <input
                               type="text"
-                              value={selectedElement.element.alt || ''}
+                              value={defaultData[selectedElement.element.altKey] || ''}
                               onChange={(e) => {
-                                const newStructure = [...structure];
-                                const element = getElementByPath(newStructure, selectedElement.path);
-                                element.alt = e.target.value;
-                                setStructure(newStructure);
+                                setDefaultData({
+                                  ...defaultData,
+                                  [selectedElement.element.altKey]: e.target.value
+                                });
                               }}
                               className="w-full px-3 py-2 border rounded text-sm"
                               placeholder="Image description"
                             />
+                            <p className="text-xs text-gray-500 mt-1">Key: {selectedElement.element.altKey}</p>
                           </div>
                         )}
 
-                        {selectedElement.element.type === 'video' && (
+                        {selectedElement.element.posterKey && (
                           <div>
                             <label className="block text-sm font-semibold mb-1">Poster URL</label>
                             <input
                               type="text"
-                              value={selectedElement.element.poster || ''}
+                              value={defaultData[selectedElement.element.posterKey] || ''}
                               onChange={(e) => {
-                                const newStructure = [...structure];
-                                const element = getElementByPath(newStructure, selectedElement.path);
-                                element.poster = e.target.value;
-                                setStructure(newStructure);
+                                setDefaultData({
+                                  ...defaultData,
+                                  [selectedElement.element.posterKey]: e.target.value
+                                });
                               }}
                               className="w-full px-3 py-2 border rounded text-sm"
                               placeholder="https://example.com/poster.jpg"
                             />
+                            <p className="text-xs text-gray-500 mt-1">Key: {selectedElement.element.posterKey}</p>
                           </div>
                         )}
 
-                        {selectedElement.element.type === 'iframe' && (
+                        {selectedElement.element.titleKey && (
                           <div>
                             <label className="block text-sm font-semibold mb-1">Title</label>
                             <input
                               type="text"
-                              value={selectedElement.element.title || ''}
+                              value={defaultData[selectedElement.element.titleKey] || ''}
                               onChange={(e) => {
-                                const newStructure = [...structure];
-                                const element = getElementByPath(newStructure, selectedElement.path);
-                                element.title = e.target.value;
-                                setStructure(newStructure);
+                                setDefaultData({
+                                  ...defaultData,
+                                  [selectedElement.element.titleKey]: e.target.value
+                                });
                               }}
                               className="w-full px-3 py-2 border rounded text-sm"
                               placeholder="Embedded content"
                             />
+                            <p className="text-xs text-gray-500 mt-1">Key: {selectedElement.element.titleKey}</p>
                           </div>
                         )}
                       </div>
                     )}
 
                     {/* Link href */}
-                    {selectedElement.element.type === 'a' && (
+                    {selectedElement.element.hrefKey && (
                       <div className="border-t pt-3">
                         <label className="block text-sm font-semibold mb-1">Link URL</label>
                         <input
                           type="text"
-                          value={selectedElement.element.href || ''}
+                          value={defaultData[selectedElement.element.hrefKey] || ''}
                           onChange={(e) => {
-                            const newStructure = [...structure];
-                            const element = getElementByPath(newStructure, selectedElement.path);
-                            element.href = e.target.value;
-                            setStructure(newStructure);
+                            setDefaultData({
+                              ...defaultData,
+                              [selectedElement.element.hrefKey]: e.target.value
+                            });
                           }}
                           className="w-full px-3 py-2 border rounded text-sm"
                           placeholder="https://example.com"
                         />
+                        <p className="text-xs text-gray-500 mt-1">Key: {selectedElement.element.hrefKey}</p>
                       </div>
                     )}
 

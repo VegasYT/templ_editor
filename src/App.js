@@ -624,6 +624,10 @@ const App = () => {
     const ElementTag = element.type === 'container' ? 'div' : element.type;
     const content = element.dataKey ? (defaultData[element.dataKey] || `[${element.dataKey}]`) : null;
 
+    // Void elements that cannot have children
+    const voidElements = ['hr', 'br', 'img', 'input', 'meta', 'link'];
+    const isVoidElement = voidElements.includes(element.type);
+
     return (
       <div
         key={pathStr}
@@ -687,31 +691,41 @@ const App = () => {
           </div>
         )}
 
-        <ElementTag
-          className={element.className || ''}
-          style={{ ...inlineStyles, position: 'relative', zIndex: 2 }}
-          src={element.srcKey ? defaultData[element.srcKey] : undefined}
-          alt={element.altKey ? defaultData[element.altKey] : undefined}
-          href={element.hrefKey ? defaultData[element.hrefKey] : undefined}
-          poster={element.posterKey ? defaultData[element.posterKey] : undefined}
-          controls={element.controls}
-          loop={element.loop}
-          muted={element.muted}
-          autoPlay={element.autoPlay}
-          allowFullScreen={element.allowFullScreen}
-        >
-          {content}
-          {element.children && element.children.map((child, index) =>
-            renderVisualElement(child, [...currentPath, index])
-          )}
-          {element.children && element.children.length === 0 && (
-            <div className="text-gray-400 text-sm py-8 text-center border-2 border-dashed border-gray-300 rounded m-2 hover:bg-gray-100 hover:border-gray-400 transition-colors">
-              <div className="text-lg mb-1">📦</div>
-              <div>Перетащите элементы сюда</div>
-              <div className="text-xs mt-1">или используйте кнопку +</div>
-            </div>
-          )}
-        </ElementTag>
+        {/* Render void elements without children */}
+        {isVoidElement ? (
+          <ElementTag
+            className={element.className || ''}
+            style={{ ...inlineStyles, position: 'relative', zIndex: 2 }}
+            src={element.srcKey ? defaultData[element.srcKey] : undefined}
+            alt={element.altKey ? defaultData[element.altKey] : undefined}
+          />
+        ) : (
+          <ElementTag
+            className={element.className || ''}
+            style={{ ...inlineStyles, position: 'relative', zIndex: 2 }}
+            src={element.srcKey ? defaultData[element.srcKey] : undefined}
+            alt={element.altKey ? defaultData[element.altKey] : undefined}
+            href={element.hrefKey ? defaultData[element.hrefKey] : undefined}
+            poster={element.posterKey ? defaultData[element.posterKey] : undefined}
+            controls={element.controls}
+            loop={element.loop}
+            muted={element.muted}
+            autoPlay={element.autoPlay}
+            allowFullScreen={element.allowFullScreen}
+          >
+            {content}
+            {element.children && element.children.map((child, index) =>
+              renderVisualElement(child, [...currentPath, index])
+            )}
+            {element.children && element.children.length === 0 && (
+              <div className="text-gray-400 text-sm py-8 text-center border-2 border-dashed border-gray-300 rounded m-2 hover:bg-gray-100 hover:border-gray-400 transition-colors">
+                <div className="text-lg mb-1">📦</div>
+                <div>Перетащите элементы сюда</div>
+                <div className="text-xs mt-1">или используйте кнопку +</div>
+              </div>
+            )}
+          </ElementTag>
+        )}
       </div>
     );
   };

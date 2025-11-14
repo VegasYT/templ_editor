@@ -292,12 +292,20 @@ const App = () => {
 
   // Drag and drop handlers
   const handleDragStart = (e, path) => {
-    // Only allow drag if started from drag handle
     const target = e.target;
     const dragHandle = target.closest('[data-drag-handle]');
 
-    // If drag wasn't started from handle, prevent it (allows content to be selected/interacted)
-    if (!dragHandle) {
+    // Allow drag if:
+    // 1. Started from drag handle OR
+    // 2. Started from the wrapper itself (not nested content)
+    const isWrapper = target === e.currentTarget;
+
+    // Check if target is text/content element that should be selectable
+    const textElements = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'SPAN', 'A', 'STRONG', 'EM', 'SMALL', 'BUTTON'];
+    const isTextElement = textElements.includes(target.tagName);
+
+    // Prevent drag if it's text content and not started from handle
+    if (isTextElement && !dragHandle && !isWrapper) {
       e.preventDefault();
       return;
     }
@@ -727,7 +735,7 @@ const App = () => {
           e.stopPropagation();
           setSelectedElement({ element, path: currentPath });
         }}
-        className={`relative group transition-all duration-200 ease-in-out ${
+        className={`relative group transition-all duration-200 ease-in-out cursor-grab active:cursor-grabbing ${
           isSelected ? 'ring-2 ring-blue-500 ring-offset-2 bg-blue-50' : ''
         } ${
           canAcceptDrop && !isDraggedOver ? 'hover:ring-1 hover:ring-gray-300 hover:shadow-sm hover:bg-gray-50' : ''

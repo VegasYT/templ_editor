@@ -24,49 +24,70 @@ const JsonEditorModal = ({ isOpen, onClose, structure, editableStyles, defaultDa
     try {
       const parsed = JSON.parse(jsonText);
 
-      // Validate settings object
-      if (!parsed.settings) {
-        throw new Error('Missing "settings" field');
-      }
-      if (typeof parsed.settings !== 'object' || Array.isArray(parsed.settings)) {
-        throw new Error('Field "settings" must be an object');
+      // Support both formats: new (with settings object) and old (flat)
+      let structure, editableElements, editableStyles, defaultData;
+
+      if (parsed.settings) {
+        // New format with settings object
+        if (typeof parsed.settings !== 'object' || Array.isArray(parsed.settings)) {
+          throw new Error('Field "settings" must be an object');
+        }
+
+        structure = parsed.settings.structure;
+        editableElements = parsed.settings.editableElements;
+        editableStyles = parsed.settings.editableStyles;
+
+        // Validate default_data
+        if (!parsed.default_data) {
+          throw new Error('Missing "default_data" field');
+        }
+        if (typeof parsed.default_data !== 'object' || Array.isArray(parsed.default_data)) {
+          throw new Error('Field "default_data" must be an object');
+        }
+        defaultData = parsed.default_data;
+      } else {
+        // Old flat format for backward compatibility
+        structure = parsed.structure;
+        editableElements = parsed.editableElements;
+        editableStyles = parsed.editableStyles;
+        defaultData = parsed.defaultData || parsed.default_data;
       }
 
       // Validate structure
-      if (!parsed.settings.structure) {
-        throw new Error('Missing "settings.structure" field');
+      if (!structure) {
+        throw new Error('Missing "structure" field in settings');
       }
-      if (!Array.isArray(parsed.settings.structure)) {
-        throw new Error('Field "settings.structure" must be an array');
+      if (!Array.isArray(structure)) {
+        throw new Error('Field "structure" must be an array');
       }
 
       // Validate editableElements (optional)
-      if (parsed.settings.editableElements !== undefined && !Array.isArray(parsed.settings.editableElements)) {
-        throw new Error('Field "settings.editableElements" must be an array if provided');
+      if (editableElements !== undefined && !Array.isArray(editableElements)) {
+        throw new Error('Field "editableElements" must be an array if provided');
       }
 
       // Validate editableStyles
-      if (!parsed.settings.editableStyles) {
-        throw new Error('Missing "settings.editableStyles" field');
+      if (!editableStyles) {
+        throw new Error('Missing "editableStyles" field in settings');
       }
-      if (typeof parsed.settings.editableStyles !== 'object' || Array.isArray(parsed.settings.editableStyles)) {
-        throw new Error('Field "settings.editableStyles" must be an object');
+      if (typeof editableStyles !== 'object' || Array.isArray(editableStyles)) {
+        throw new Error('Field "editableStyles" must be an object');
       }
 
-      // Validate default_data
-      if (!parsed.default_data) {
-        throw new Error('Missing "default_data" field');
+      // Validate defaultData
+      if (!defaultData) {
+        throw new Error('Missing data field (default_data or defaultData)');
       }
-      if (typeof parsed.default_data !== 'object' || Array.isArray(parsed.default_data)) {
-        throw new Error('Field "default_data" must be an object');
+      if (typeof defaultData !== 'object' || Array.isArray(defaultData)) {
+        throw new Error('Data field must be an object');
       }
 
       // Map to internal state
       onSave({
-        structure: parsed.settings.structure,
-        editableElements: parsed.settings.editableElements,
-        editableStyles: parsed.settings.editableStyles,
-        defaultData: parsed.default_data
+        structure,
+        editableElements,
+        editableStyles,
+        defaultData
       });
       setError('');
       onClose();

@@ -12,6 +12,7 @@ const App = () => {
   const [collapsedNodes, setCollapsedNodes] = useState({});
   const [draggedItem, setDraggedItem] = useState(null);
   const [dropTarget, setDropTarget] = useState(null);
+  const [draggedElementType, setDraggedElementType] = useState(null); // For dragging from left panel
 
   // Базовые элементы для добавления
   const elementTypes = [
@@ -290,7 +291,16 @@ const App = () => {
   const handleDragStart = (e, path) => {
     e.stopPropagation();
     setDraggedItem(path);
+    setDraggedElementType(null);
     e.dataTransfer.effectAllowed = 'move';
+  };
+
+  // Drag start for new elements from left panel
+  const handleElementDragStart = (e, elementType) => {
+    e.stopPropagation();
+    setDraggedElementType(elementType);
+    setDraggedItem(null);
+    e.dataTransfer.effectAllowed = 'copy';
   };
 
   const handleDragOver = (e, path) => {
@@ -307,6 +317,45 @@ const App = () => {
   const handleDrop = (e, targetPath) => {
     e.preventDefault();
     e.stopPropagation();
+
+    // If dropping a new element from left panel
+    if (draggedElementType) {
+      const newStructure = [...structure];
+      const containerTypes = ['container', 'div', 'grid', 'ul', 'ol', 'button', 'a'];
+      const needsDataKey = !['container', 'div', 'grid', 'br', 'hr', 'ul', 'ol'].includes(draggedElementType);
+
+      const newElement = {
+        type: draggedElementType,
+        className: getDefaultClasses(draggedElementType),
+        styles: {},
+        children: containerTypes.includes(draggedElementType) ? [] : undefined,
+        dataKey: needsDataKey ? `${draggedElementType}_${Date.now()}` : undefined,
+      };
+
+      // Add default data for media and text elements
+      if (needsDataKey && newElement.dataKey) {
+        setDefaultData({
+          ...defaultData,
+          [newElement.dataKey]: `Sample ${draggedElementType} text`
+        });
+      }
+
+      // Add to position after target
+      if (targetPath.length === 1) {
+        newStructure.splice(targetPath[0] + 1, 0, newElement);
+      } else {
+        const targetParentPath = targetPath.slice(0, -1);
+        const targetParent = getElementByPath(newStructure, targetParentPath);
+        if (targetParent.children) {
+          targetParent.children.splice(targetPath[targetPath.length - 1] + 1, 0, newElement);
+        }
+      }
+
+      setStructure(newStructure);
+      setDraggedElementType(null);
+      setDropTarget(null);
+      return;
+    }
 
     if (!draggedItem || JSON.stringify(draggedItem) === JSON.stringify(targetPath)) {
       setDraggedItem(null);
@@ -357,24 +406,56 @@ const App = () => {
     e.preventDefault();
     e.stopPropagation();
 
+    const newStructure = [...structure];
+    const targetElement = getElementByPath(newStructure, targetPath);
+
+    // Check if target can have children
+    if (!targetElement.children && targetElement.children !== []) {
+      setDraggedItem(null);
+      setDraggedElementType(null);
+      setDropTarget(null);
+      return;
+    }
+
+    // If dropping a new element from left panel
+    if (draggedElementType) {
+      const containerTypes = ['container', 'div', 'grid', 'ul', 'ol', 'button', 'a'];
+      const needsDataKey = !['container', 'div', 'grid', 'br', 'hr', 'ul', 'ol'].includes(draggedElementType);
+
+      const newElement = {
+        type: draggedElementType,
+        className: getDefaultClasses(draggedElementType),
+        styles: {},
+        children: containerTypes.includes(draggedElementType) ? [] : undefined,
+        dataKey: needsDataKey ? `${draggedElementType}_${Date.now()}` : undefined,
+      };
+
+      // Add default data for media and text elements
+      if (needsDataKey && newElement.dataKey) {
+        setDefaultData({
+          ...defaultData,
+          [newElement.dataKey]: `Sample ${draggedElementType} text`
+        });
+      }
+
+      // Add inside target
+      const updatedTarget = getElementByPath(newStructure, targetPath);
+      updatedTarget.children.push(newElement);
+
+      setStructure(newStructure);
+      setDraggedElementType(null);
+      setDropTarget(null);
+      return;
+    }
+
     if (!draggedItem) {
       setDropTarget(null);
       return;
     }
 
     // Move element from draggedItem path inside targetPath
-    const newStructure = [...structure];
-
     // Get dragged element
     const draggedElement = JSON.parse(JSON.stringify(getElementByPath(newStructure, draggedItem)));
-
-    // Check if target can have children
-    const targetElement = getElementByPath(newStructure, targetPath);
-    if (!targetElement.children) {
-      setDraggedItem(null);
-      setDropTarget(null);
-      return;
-    }
 
     // Remove from old position
     if (draggedItem.length === 1) {
@@ -445,7 +526,9 @@ const App = () => {
     const pathStr = currentPath.join('-');
     const isSelected = selectedElement && JSON.stringify(selectedElement.path) === JSON.stringify(currentPath);
     const isDraggedOver = dropTarget && JSON.stringify(dropTarget) === JSON.stringify(currentPath);
+    const isDropInsideTarget = dropTarget && JSON.stringify(dropTarget) === JSON.stringify([...currentPath, 'inside']);
     const hasChildren = element.children !== undefined;
+    const canAcceptDrop = draggedItem || draggedElementType;
 
     // Inline styles from element.styles
     const inlineStyles = {};
@@ -472,13 +555,29 @@ const App = () => {
           e.stopPropagation();
           setSelectedElement({ element, path: currentPath });
         }}
-        className={`relative group ${isSelected ? 'ring-2 ring-blue-500' : ''} ${isDraggedOver ? 'ring-2 ring-green-500' : ''}`}
+        className={`relative group transition-all ${
+          isSelected ? 'ring-2 ring-blue-500 ring-offset-2' : ''
+        } ${
+          isDraggedOver ? 'ring-2 ring-amber-400 ring-offset-2 bg-amber-50' : ''
+        } ${
+          canAcceptDrop && !isDraggedOver && !isDropInsideTarget ? 'hover:ring-1 hover:ring-gray-300' : ''
+        }`}
         style={{ minHeight: element.children ? '40px' : 'auto' }}
       >
         {/* Element label overlay */}
-        <div className="absolute top-0 left-0 opacity-0 group-hover:opacity-100 bg-blue-500 text-white text-xs px-2 py-0.5 rounded-br z-10 transition-opacity">
+        <div className="absolute top-0 left-0 opacity-0 group-hover:opacity-100 bg-blue-500 text-white text-xs px-2 py-0.5 rounded-br z-20 transition-opacity shadow-lg">
           {element.type}
+          {hasChildren && ' (container)'}
         </div>
+
+        {/* Drop as sibling indicator */}
+        {isDraggedOver && (
+          <div className="absolute inset-0 border-2 border-amber-500 bg-amber-100 bg-opacity-20 rounded pointer-events-none z-10 flex items-center justify-center">
+            <div className="bg-amber-500 text-white text-xs px-3 py-1 rounded-full font-semibold shadow-lg">
+              Drop here as sibling
+            </div>
+          </div>
+        )}
 
         {/* Drop zone indicator for containers */}
         {hasChildren && (
@@ -489,13 +588,21 @@ const App = () => {
               setDropTarget([...currentPath, 'inside']);
             }}
             onDrop={(e) => handleDropInside(e, currentPath)}
-            className={`absolute inset-0 pointer-events-auto ${
-              dropTarget && JSON.stringify(dropTarget) === JSON.stringify([...currentPath, 'inside'])
-                ? 'bg-green-100 border-2 border-dashed border-green-500'
-                : ''
+            className={`absolute inset-0 pointer-events-auto transition-all ${
+              isDropInsideTarget
+                ? 'bg-green-100 bg-opacity-80 border-4 border-dashed border-green-500 z-15'
+                : canAcceptDrop ? 'hover:bg-green-50 hover:border-2 hover:border-dashed hover:border-green-300' : ''
             }`}
-            style={{ zIndex: 1 }}
-          />
+            style={{ zIndex: isDropInsideTarget ? 15 : 1 }}
+          >
+            {isDropInsideTarget && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="bg-green-600 text-white text-sm px-4 py-2 rounded-full font-bold shadow-xl animate-pulse">
+                  Drop inside container
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
         <ElementTag
@@ -516,8 +623,10 @@ const App = () => {
             renderVisualElement(child, [...currentPath, index])
           )}
           {element.children && element.children.length === 0 && (
-            <div className="text-gray-400 text-sm py-4 text-center border-2 border-dashed border-gray-300 rounded">
-              Перетащите элементы сюда
+            <div className="text-gray-400 text-sm py-8 text-center border-2 border-dashed border-gray-300 rounded m-2 bg-gray-50 hover:bg-gray-100 hover:border-gray-400 transition-colors">
+              <div className="text-lg mb-1">📦</div>
+              <div>Перетащите элементы сюда</div>
+              <div className="text-xs mt-1">или используйте кнопку +</div>
             </div>
           )}
         </ElementTag>
@@ -1048,19 +1157,19 @@ const App = () => {
                     <div className="border-t pt-3">
                       <label className="block text-sm font-semibold mb-2">Editable Styles</label>
                       <p className="text-xs text-gray-600 mb-3">Link CSS properties to editable styles</p>
-                      
+
                       <div className="space-y-2">
-                        <div className="flex gap-2">
+                        <div className="space-y-2">
                           <input
                             type="text"
-                            placeholder="CSS property"
-                            className="flex-1 px-2 py-1 border rounded text-xs"
+                            placeholder="CSS property (e.g., backgroundColor)"
+                            className="w-full px-2 py-1 border rounded text-xs"
                             id="css-prop"
                           />
                           <input
                             type="text"
-                            placeholder="Style key"
-                            className="flex-1 px-2 py-1 border rounded text-xs"
+                            placeholder="Style key (e.g., primaryColor)"
+                            className="w-full px-2 py-1 border rounded text-xs"
                             id="style-key"
                           />
                           <button
@@ -1080,9 +1189,9 @@ const App = () => {
                                 document.getElementById('style-key').value = '';
                               }
                             }}
-                            className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600 leading-none"
+                            className="w-full px-3 py-2 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 font-semibold"
                           >
-                            +
+                            + Add Style Link
                           </button>
                         </div>
                         
@@ -1355,7 +1464,10 @@ const App = () => {
             {/* Left Sidebar - Elements */}
             <div className="w-64 bg-white border-r overflow-y-auto">
               <div className="p-4">
-                <h3 className="font-bold mb-3 text-sm">Elements</h3>
+                <h3 className="font-bold mb-3 text-sm flex items-center gap-2">
+                  <span>Elements</span>
+                  <span className="text-xs font-normal text-gray-500">(drag to canvas)</span>
+                </h3>
                 {categories.map(category => (
                   <div key={category} className="mb-4">
                     <h4 className="text-xs font-semibold text-gray-600 mb-2">{category}</h4>
@@ -1363,14 +1475,17 @@ const App = () => {
                       {elementTypes
                         .filter(el => el.category === category)
                         .map((el) => (
-                          <button
+                          <div
                             key={el.type}
+                            draggable
+                            onDragStart={(e) => handleElementDragStart(e, el.type)}
                             onClick={() => addElement(el.type)}
-                            className="w-full p-2 border rounded hover:bg-blue-50 text-left flex items-center gap-2 text-xs"
+                            className="w-full p-2 border rounded hover:bg-blue-50 text-left flex items-center gap-2 text-xs cursor-move hover:shadow-md transition-all active:opacity-50"
                           >
                             <span className="text-sm">{el.icon}</span>
                             <span>{el.label}</span>
-                          </button>
+                            <span className="ml-auto text-gray-400">⋮⋮</span>
+                          </div>
                         ))}
                     </div>
                   </div>
@@ -1400,9 +1515,27 @@ const App = () => {
                 </div>
 
                 {structure.length === 0 ? (
-                  <div className="border-2 border-dashed border-gray-300 rounded p-16 text-center bg-gray-50">
+                  <div
+                    className="border-2 border-dashed border-gray-300 rounded p-16 text-center bg-gray-50 hover:border-blue-400 hover:bg-blue-50 transition-colors"
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.classList.add('border-green-500', 'bg-green-50');
+                    }}
+                    onDragLeave={(e) => {
+                      e.currentTarget.classList.remove('border-green-500', 'bg-green-50');
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.classList.remove('border-green-500', 'bg-green-50');
+                      if (draggedElementType) {
+                        addElement(draggedElementType);
+                        setDraggedElementType(null);
+                      }
+                    }}
+                  >
+                    <div className="text-4xl mb-4">📦</div>
                     <p className="text-gray-500 text-lg mb-2">Начните создавать</p>
-                    <p className="text-gray-400 text-sm">Добавьте элементы из левой панели</p>
+                    <p className="text-gray-400 text-sm">Перетащите элементы из левой панели или нажмите на них</p>
                   </div>
                 ) : (
                   <div className="space-y-2">

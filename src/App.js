@@ -353,23 +353,26 @@ const App = () => {
     const hasChildren = element.children !== undefined;
     const isEmpty = hasChildren && element.children.length === 0;
 
+    // Use fixed pixel zones for better predictability
+    const EDGE_ZONE_SIZE = 30; // pixels for before/after zones
+
     if (hasChildren) {
       // For empty containers: entire area is 'inside' zone for easier dropping
       if (isEmpty) {
         setDropZone('inside');
       } else {
-        // For non-empty containers: divide into 3 zones with generous 'inside' zone
-        // before: first 25%, inside: middle 50%, after: last 25%
-        if (y < height * 0.25) {
+        // For non-empty containers: use fixed pixel zones at edges
+        // This prevents huge before/after zones when container has lots of content
+        if (y < EDGE_ZONE_SIZE) {
           setDropZone('before');
-        } else if (y > height * 0.75) {
+        } else if (y > height - EDGE_ZONE_SIZE) {
           setDropZone('after');
         } else {
           setDropZone('inside');
         }
       }
     } else {
-      // For non-containers: divide into 2 zones
+      // For non-containers: divide into 2 zones (50/50)
       if (y < height * 0.5) {
         setDropZone('before');
       } else {
@@ -383,8 +386,16 @@ const App = () => {
   const handleDragLeave = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    // Clear drop target when leaving
-    if (e.target === e.currentTarget) {
+
+    // Get the element we're leaving
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX;
+    const y = e.clientY;
+
+    // Check if mouse is actually outside the element bounds
+    const isOutside = x < rect.left || x > rect.right || y < rect.top || y > rect.bottom;
+
+    if (isOutside) {
       setDropTarget(null);
       setDropZone(null);
     }
@@ -735,7 +746,7 @@ const App = () => {
           {/* Left side - Drag handle and label */}
           <div
             data-drag-handle
-            className="flex items-center gap-1 bg-blue-500 text-white text-xs px-2 py-1 rounded-br shadow-lg pointer-events-auto cursor-grab active:cursor-grabbing"
+            className="flex items-center gap-1 bg-blue-500/90 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-br shadow-lg pointer-events-auto cursor-grab active:cursor-grabbing"
           >
             <GripVertical size={12} />
             <span className="font-medium select-none">
@@ -745,7 +756,7 @@ const App = () => {
           </div>
 
           {/* Right side - Quick actions */}
-          <div className="flex items-center gap-1 bg-white rounded-bl shadow-lg overflow-hidden pointer-events-auto">
+          <div className="flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-bl shadow-lg overflow-hidden pointer-events-auto">
             <button
               onClick={(e) => {
                 e.stopPropagation();

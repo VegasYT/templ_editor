@@ -10,6 +10,8 @@ const App = () => {
   const [categoryId, setCategoryId] = useState(1);
   const [viewMode, setViewMode] = useState('builder');
   const [collapsedNodes, setCollapsedNodes] = useState({});
+  const [draggedItem, setDraggedItem] = useState(null);
+  const [dropTarget, setDropTarget] = useState(null);
 
   // Базовые элементы для добавления
   const elementTypes = [
@@ -284,6 +286,114 @@ const App = () => {
     });
   };
 
+  // Drag and drop handlers
+  const handleDragStart = (e, path) => {
+    e.stopPropagation();
+    setDraggedItem(path);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e, path) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDropTarget(path);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e, targetPath) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!draggedItem || JSON.stringify(draggedItem) === JSON.stringify(targetPath)) {
+      setDraggedItem(null);
+      setDropTarget(null);
+      return;
+    }
+
+    // Move element from draggedItem path to targetPath
+    const newStructure = [...structure];
+
+    // Get dragged element
+    const draggedElement = JSON.parse(JSON.stringify(getElementByPath(newStructure, draggedItem)));
+
+    // Remove from old position
+    if (draggedItem.length === 1) {
+      newStructure.splice(draggedItem[0], 1);
+    } else {
+      const dragParentPath = draggedItem.slice(0, -1);
+      const dragParent = getElementByPath(newStructure, dragParentPath);
+      dragParent.children.splice(draggedItem[draggedItem.length - 1], 1);
+    }
+
+    // Adjust target path if needed (if dragged from before target in same parent)
+    let adjustedTargetPath = [...targetPath];
+    if (draggedItem.length === targetPath.length &&
+        draggedItem.slice(0, -1).every((v, i) => v === targetPath[i]) &&
+        draggedItem[draggedItem.length - 1] < targetPath[targetPath.length - 1]) {
+      adjustedTargetPath[adjustedTargetPath.length - 1]--;
+    }
+
+    // Add to new position (as sibling after target)
+    if (adjustedTargetPath.length === 1) {
+      newStructure.splice(adjustedTargetPath[0] + 1, 0, draggedElement);
+    } else {
+      const targetParentPath = adjustedTargetPath.slice(0, -1);
+      const targetParent = getElementByPath(newStructure, targetParentPath);
+      if (targetParent.children) {
+        targetParent.children.splice(adjustedTargetPath[adjustedTargetPath.length - 1] + 1, 0, draggedElement);
+      }
+    }
+
+    setStructure(newStructure);
+    setDraggedItem(null);
+    setDropTarget(null);
+  };
+
+  const handleDropInside = (e, targetPath) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!draggedItem) {
+      setDropTarget(null);
+      return;
+    }
+
+    // Move element from draggedItem path inside targetPath
+    const newStructure = [...structure];
+
+    // Get dragged element
+    const draggedElement = JSON.parse(JSON.stringify(getElementByPath(newStructure, draggedItem)));
+
+    // Check if target can have children
+    const targetElement = getElementByPath(newStructure, targetPath);
+    if (!targetElement.children) {
+      setDraggedItem(null);
+      setDropTarget(null);
+      return;
+    }
+
+    // Remove from old position
+    if (draggedItem.length === 1) {
+      newStructure.splice(draggedItem[0], 1);
+    } else {
+      const dragParentPath = draggedItem.slice(0, -1);
+      const dragParent = getElementByPath(newStructure, dragParentPath);
+      dragParent.children.splice(draggedItem[draggedItem.length - 1], 1);
+    }
+
+    // Add inside target
+    const updatedTarget = getElementByPath(newStructure, targetPath);
+    updatedTarget.children.push(draggedElement);
+
+    setStructure(newStructure);
+    setDraggedItem(null);
+    setDropTarget(null);
+  };
+
   // Экспорт JSON
   const exportJSON = () => {
     const template = {
@@ -329,13 +439,100 @@ const App = () => {
     }
   };
 
+  // Visual rendering of elements
+  const renderVisualElement = (element, path = []) => {
+    const currentPath = [...path];
+    const pathStr = currentPath.join('-');
+    const isSelected = selectedElement && JSON.stringify(selectedElement.path) === JSON.stringify(currentPath);
+    const isDraggedOver = dropTarget && JSON.stringify(dropTarget) === JSON.stringify(currentPath);
+    const hasChildren = element.children !== undefined;
+
+    // Inline styles from element.styles
+    const inlineStyles = {};
+    if (element.styles) {
+      Object.entries(element.styles).forEach(([cssProp, styleKey]) => {
+        if (editableStyles[styleKey]) {
+          inlineStyles[cssProp] = editableStyles[styleKey].default;
+        }
+      });
+    }
+
+    const ElementTag = element.type === 'container' ? 'div' : element.type;
+    const content = element.dataKey ? (defaultData[element.dataKey] || `[${element.dataKey}]`) : null;
+
+    return (
+      <div
+        key={pathStr}
+        draggable
+        onDragStart={(e) => handleDragStart(e, currentPath)}
+        onDragOver={(e) => handleDragOver(e, currentPath)}
+        onDragLeave={handleDragLeave}
+        onDrop={(e) => handleDrop(e, currentPath)}
+        onClick={(e) => {
+          e.stopPropagation();
+          setSelectedElement({ element, path: currentPath });
+        }}
+        className={`relative group ${isSelected ? 'ring-2 ring-blue-500' : ''} ${isDraggedOver ? 'ring-2 ring-green-500' : ''}`}
+        style={{ minHeight: element.children ? '40px' : 'auto' }}
+      >
+        {/* Element label overlay */}
+        <div className="absolute top-0 left-0 opacity-0 group-hover:opacity-100 bg-blue-500 text-white text-xs px-2 py-0.5 rounded-br z-10 transition-opacity">
+          {element.type}
+        </div>
+
+        {/* Drop zone indicator for containers */}
+        {hasChildren && (
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setDropTarget([...currentPath, 'inside']);
+            }}
+            onDrop={(e) => handleDropInside(e, currentPath)}
+            className={`absolute inset-0 pointer-events-auto ${
+              dropTarget && JSON.stringify(dropTarget) === JSON.stringify([...currentPath, 'inside'])
+                ? 'bg-green-100 border-2 border-dashed border-green-500'
+                : ''
+            }`}
+            style={{ zIndex: 1 }}
+          />
+        )}
+
+        <ElementTag
+          className={element.className || ''}
+          style={{ ...inlineStyles, position: 'relative', zIndex: 2 }}
+          src={element.srcKey ? defaultData[element.srcKey] : undefined}
+          alt={element.altKey ? defaultData[element.altKey] : undefined}
+          href={element.hrefKey ? defaultData[element.hrefKey] : undefined}
+          poster={element.posterKey ? defaultData[element.posterKey] : undefined}
+          controls={element.controls}
+          loop={element.loop}
+          muted={element.muted}
+          autoPlay={element.autoPlay}
+          allowFullScreen={element.allowFullScreen}
+        >
+          {content}
+          {element.children && element.children.map((child, index) =>
+            renderVisualElement(child, [...currentPath, index])
+          )}
+          {element.children && element.children.length === 0 && (
+            <div className="text-gray-400 text-sm py-4 text-center border-2 border-dashed border-gray-300 rounded">
+              Перетащите элементы сюда
+            </div>
+          )}
+        </ElementTag>
+      </div>
+    );
+  };
+
   // Рендер дерева элементов
   const renderElementTree = (elements, path = []) => {
     return elements.map((element, index) => {
       const currentPath = [...path, index];
       const pathStr = currentPath.join('-');
       const isSelected = selectedElement && JSON.stringify(selectedElement.path) === JSON.stringify(currentPath);
-      const hasChildren = element.children && element.children.length > 0;
+      const hasChildren = element.children !== undefined; // Check if element CAN have children, not if it HAS children
+      const hasChildrenContent = element.children && element.children.length > 0;
       const isCollapsed = collapsedNodes[pathStr];
       
       return (
@@ -346,7 +543,7 @@ const App = () => {
             }`}
             onClick={() => setSelectedElement({ element, path: currentPath })}
           >
-            {hasChildren && (
+            {hasChildrenContent && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -357,12 +554,12 @@ const App = () => {
                 {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
               </button>
             )}
-            {!hasChildren && <span className="w-5"></span>}
+            {!hasChildrenContent && <span className="w-5"></span>}
             
             <span className="text-xs font-semibold flex-1">{element.type}</span>
             {element.dataKey && <span className="text-xs text-gray-500">({element.dataKey.substring(0, 8)}...)</span>}
-            
-            <div className="flex gap-0.5">
+
+            <div className="flex flex-wrap gap-0.5">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -417,7 +614,7 @@ const App = () => {
               </button>
             </div>
           </div>
-          {hasChildren && !isCollapsed && (
+          {hasChildrenContent && !isCollapsed && (
             <div className="ml-2 border-l-2 border-gray-300 pl-2">
               {renderElementTree(element.children, currentPath)}
             </div>
@@ -458,6 +655,12 @@ const App = () => {
             className={`px-3 py-1 rounded text-sm ${viewMode === 'builder' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
           >
             <Settings size={14} className="inline mr-1" /> Builder
+          </button>
+          <button
+            onClick={() => setViewMode('visual')}
+            className={`px-3 py-1 rounded text-sm ${viewMode === 'visual' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+          >
+            <Eye size={14} className="inline mr-1" /> Visual
           </button>
           <button
             onClick={() => setViewMode('json')}
@@ -1142,6 +1345,141 @@ const App = () => {
                     )}
                   </div>
                 </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {viewMode === 'visual' && (
+          <>
+            {/* Left Sidebar - Elements */}
+            <div className="w-64 bg-white border-r overflow-y-auto">
+              <div className="p-4">
+                <h3 className="font-bold mb-3 text-sm">Elements</h3>
+                {categories.map(category => (
+                  <div key={category} className="mb-4">
+                    <h4 className="text-xs font-semibold text-gray-600 mb-2">{category}</h4>
+                    <div className="space-y-1">
+                      {elementTypes
+                        .filter(el => el.category === category)
+                        .map((el) => (
+                          <button
+                            key={el.type}
+                            onClick={() => addElement(el.type)}
+                            className="w-full p-2 border rounded hover:bg-blue-50 text-left flex items-center gap-2 text-xs"
+                          >
+                            <span className="text-sm">{el.icon}</span>
+                            <span>{el.label}</span>
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="border-t p-4">
+                <h3 className="font-bold mb-3 text-sm">Structure Tree</h3>
+                <div className="text-sm">
+                  {structure.length === 0 ? (
+                    <p className="text-gray-500 text-xs">Add elements to start</p>
+                  ) : (
+                    renderElementTree(structure)
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Center - Visual Canvas */}
+            <div className="flex-1 bg-gray-100 p-4 overflow-auto">
+              <div className="bg-white rounded shadow-lg p-8 max-w-6xl mx-auto">
+                <div className="mb-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 border border-purple-200">
+                  <h2 className="text-xl font-bold mb-2 text-purple-900">🎨 Visual Editor</h2>
+                  <p className="text-sm text-purple-700">
+                    Перетаскивайте элементы для изменения порядка. Наведите курсор для отображения типа элемента. Кликните для выбора и редактирования.
+                  </p>
+                </div>
+
+                {structure.length === 0 ? (
+                  <div className="border-2 border-dashed border-gray-300 rounded p-16 text-center bg-gray-50">
+                    <p className="text-gray-500 text-lg mb-2">Начните создавать</p>
+                    <p className="text-gray-400 text-sm">Добавьте элементы из левой панели</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {structure.map((element, index) => renderVisualElement(element, [index]))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right Sidebar - Properties (same as builder mode) */}
+            <div className="w-96 bg-white border-l overflow-y-auto">
+              <div className="p-4">
+                <h3 className="font-bold mb-3">Properties</h3>
+
+                {selectedElement ? (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-semibold mb-1">Element Type</label>
+                      <input
+                        type="text"
+                        value={selectedElement.element.type}
+                        disabled
+                        className="w-full px-3 py-2 border rounded bg-gray-100 text-sm"
+                      />
+                    </div>
+
+                    {/* Data Key */}
+                    {selectedElement.element.dataKey !== undefined && (
+                      <div>
+                        <label className="block text-sm font-semibold mb-1">Data Key</label>
+                        <input
+                          type="text"
+                          value={selectedElement.element.dataKey || ''}
+                          onChange={(e) => {
+                            const oldKey = selectedElement.element.dataKey;
+                            const newKey = e.target.value;
+
+                            const newStructure = [...structure];
+                            const element = getElementByPath(newStructure, selectedElement.path);
+                            element.dataKey = newKey;
+                            setStructure(newStructure);
+
+                            // Update defaultData
+                            if (newKey) {
+                              const newData = { ...defaultData };
+                              if (oldKey && oldKey !== newKey) {
+                                newData[newKey] = newData[oldKey] || 'Sample text';
+                                delete newData[oldKey];
+                              } else if (!oldKey) {
+                                newData[newKey] = 'Sample text';
+                              }
+                              setDefaultData(newData);
+                            }
+                          }}
+                          className="w-full px-3 py-2 border rounded text-sm"
+                          placeholder="e.g., title, subtitle"
+                        />
+                      </div>
+                    )}
+
+                    <div className="border-t pt-3">
+                      <label className="block text-sm font-semibold mb-1">Tailwind Classes</label>
+                      <textarea
+                        value={selectedElement.element.className || ''}
+                        onChange={(e) => updateClassName(selectedElement.path, e.target.value)}
+                        className="w-full px-3 py-2 border rounded font-mono text-xs"
+                        rows={4}
+                        placeholder="py-12 text-center max-w-6xl"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <Eye size={48} className="mx-auto text-gray-300 mb-3" />
+                    <p className="text-gray-500 text-sm">Выберите элемент для редактирования</p>
+                  </div>
+                )}
               </div>
             </div>
           </>

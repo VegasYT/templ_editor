@@ -11,7 +11,7 @@ const JsonEditorModal = ({ isOpen, onClose, structure, editableStyles, defaultDa
         structure,
         editableElements: Object.keys(defaultData),
         editableStyles,
-        defaultData
+        default_data: defaultData
       };
       setJsonText(JSON.stringify(jsonData, null, 2));
       setError('');
@@ -43,15 +43,21 @@ const JsonEditorModal = ({ isOpen, onClose, structure, editableStyles, defaultDa
         throw new Error('Field "editableStyles" must be an object');
       }
 
-      // Validate defaultData
-      if (!parsed.defaultData) {
-        throw new Error('Missing "defaultData" field');
+      // Validate default_data
+      if (!parsed.default_data) {
+        throw new Error('Missing "default_data" field');
       }
-      if (typeof parsed.defaultData !== 'object' || Array.isArray(parsed.defaultData)) {
-        throw new Error('Field "defaultData" must be an object');
+      if (typeof parsed.default_data !== 'object' || Array.isArray(parsed.default_data)) {
+        throw new Error('Field "default_data" must be an object');
       }
 
-      onSave(parsed);
+      // Map default_data to defaultData for internal state
+      onSave({
+        structure: parsed.structure,
+        editableElements: parsed.editableElements,
+        editableStyles: parsed.editableStyles,
+        defaultData: parsed.default_data
+      });
       setError('');
       onClose();
     } catch (e) {
@@ -100,7 +106,7 @@ const JsonEditorModal = ({ isOpen, onClose, structure, editableStyles, defaultDa
         {/* Footer */}
         <div className="flex items-center justify-between p-4 border-t bg-gray-50">
           <div className="text-sm text-gray-600">
-            Edit structure, editableElements, editableStyles, and defaultData
+            Edit structure, editableElements, editableStyles, and default_data
           </div>
           <div className="flex gap-2">
             <button

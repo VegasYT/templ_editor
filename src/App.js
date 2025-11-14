@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Plus, Trash2, Copy, Download, Upload, Eye, Code, Settings, ChevronDown, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Trash2, Copy, Download, Upload, Eye, Code, Settings, ChevronDown, ChevronRight, GripVertical, X } from 'lucide-react';
 
 const App = () => {
   const [structure, setStructure] = useState([]);
@@ -699,47 +699,78 @@ const App = () => {
           e.stopPropagation();
           setSelectedElement({ element, path: currentPath });
         }}
-        className={`relative group transition-all cursor-move ${
-          isSelected ? 'ring-2 ring-blue-500 ring-offset-2' : ''
+        className={`relative group transition-all duration-200 ease-in-out cursor-move ${
+          isSelected ? 'ring-2 ring-blue-500 ring-offset-2 bg-blue-50' : ''
         } ${
-          canAcceptDrop && !isDraggedOver ? 'hover:ring-1 hover:ring-gray-300 hover:shadow-sm' : ''
+          canAcceptDrop && !isDraggedOver ? 'hover:ring-1 hover:ring-gray-300 hover:shadow-sm hover:bg-gray-50' : ''
         } ${
-          isDraggedOver ? 'shadow-lg' : ''
+          isDraggedOver ? 'shadow-xl scale-[1.02]' : ''
         }`}
         style={{
           minHeight: element.children ? '40px' : 'auto',
-          marginBottom: isDraggedOver && dropZone === 'after' ? '12px' : '0',
-          marginTop: isDraggedOver && dropZone === 'before' ? '12px' : '0',
+          marginBottom: isDraggedOver && dropZone === 'after' ? '16px' : '0',
+          marginTop: isDraggedOver && dropZone === 'before' ? '16px' : '0',
           overflow: 'visible'
         }}
       >
-        {/* Element label overlay */}
-        <div className="absolute top-0 left-0 opacity-0 group-hover:opacity-100 bg-blue-500 text-white text-xs px-2 py-0.5 rounded-br z-20 transition-opacity shadow-lg">
-          {element.type}
-          {hasChildren && ' (container)'}
+        {/* Element controls overlay */}
+        <div className="absolute top-0 left-0 right-0 opacity-0 group-hover:opacity-100 z-20 transition-opacity flex items-center justify-between gap-2 pointer-events-none">
+          {/* Left side - Drag handle and label */}
+          <div className="flex items-center gap-1 bg-blue-500 text-white text-xs px-2 py-1 rounded-br shadow-lg pointer-events-auto">
+            <GripVertical size={12} className="cursor-grab active:cursor-grabbing" />
+            <span className="font-medium">
+              {element.type}
+              {hasChildren && ' (container)'}
+            </span>
+          </div>
+
+          {/* Right side - Quick actions */}
+          <div className="flex items-center gap-1 bg-white rounded-bl shadow-lg overflow-hidden pointer-events-auto">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                copyElement(currentPath);
+              }}
+              className="px-2 py-1 hover:bg-blue-50 text-blue-600 transition-colors"
+              title="Duplicate (Ctrl+D)"
+            >
+              <Copy size={12} />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                deleteElement(currentPath);
+              }}
+              className="px-2 py-1 hover:bg-red-50 text-red-600 transition-colors"
+              title="Delete (Del)"
+            >
+              <Trash2 size={12} />
+            </button>
+          </div>
         </div>
 
-        {/* Drop indicators based on zone */}
+        {/* Drop indicators based on zone - Improved version */}
         {isDraggedOver && dropZone === 'before' && (
-          <div className="absolute -top-1 left-0 right-0 h-2 bg-blue-500 z-30 shadow-lg rounded-full">
-            <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs px-3 py-1.5 rounded-full font-semibold shadow-xl whitespace-nowrap border-2 border-blue-300">
-              ↑ Вставить перед
+          <div className="absolute -top-2 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 via-blue-500 to-blue-400 z-30 shadow-lg animate-pulse">
+            <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-gradient-to-r from-blue-600 to-blue-500 text-white text-xs px-4 py-1.5 rounded-full font-semibold shadow-xl whitespace-nowrap border-2 border-blue-300 flex items-center gap-1">
+              <span className="text-base">↑</span> Вставить перед
             </div>
           </div>
         )}
 
         {isDraggedOver && dropZone === 'after' && (
-          <div className="absolute -bottom-1 left-0 right-0 h-2 bg-blue-500 z-30 shadow-lg rounded-full">
-            <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs px-3 py-1.5 rounded-full font-semibold shadow-xl whitespace-nowrap border-2 border-blue-300">
-              ↓ Вставить после
+          <div className="absolute -bottom-2 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 via-blue-500 to-blue-400 z-30 shadow-lg animate-pulse">
+            <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-gradient-to-r from-blue-600 to-blue-500 text-white text-xs px-4 py-1.5 rounded-full font-semibold shadow-xl whitespace-nowrap border-2 border-blue-300 flex items-center gap-1">
+              <span className="text-base">↓</span> Вставить после
             </div>
           </div>
         )}
 
         {isDraggedOver && dropZone === 'inside' && (
-          <div className="absolute inset-0 bg-gradient-to-br from-green-100 to-emerald-100 bg-opacity-90 border-4 border-dashed border-green-500 rounded-lg z-20 flex items-center justify-center pointer-events-none backdrop-blur-sm">
-            <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white text-sm px-5 py-2.5 rounded-full font-bold shadow-xl animate-pulse border-2 border-green-300">
-              📦 Вставить внутрь контейнера
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-100 via-green-100 to-teal-100 border-4 border-dashed border-emerald-500 rounded-lg z-20 flex items-center justify-center pointer-events-none backdrop-blur-sm animate-pulse">
+            <div className="bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 text-white text-sm px-6 py-3 rounded-full font-bold shadow-2xl border-2 border-emerald-300 flex items-center gap-2">
+              <span className="text-lg">📦</span>
+              <span>Вставить внутрь контейнера</span>
             </div>
           </div>
         )}
@@ -882,6 +913,26 @@ const App = () => {
       );
     });
   };
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Delete selected element with Delete or Backspace key
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedElement && !e.target.matches('input, textarea')) {
+        e.preventDefault();
+        deleteElement(selectedElement.path);
+      }
+
+      // Duplicate selected element with Ctrl+D or Cmd+D
+      if ((e.ctrlKey || e.metaKey) && e.key === 'd' && selectedElement && !e.target.matches('input, textarea')) {
+        e.preventDefault();
+        copyElement(selectedElement.path);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedElement]);
 
   return (
     <div className="h-screen flex flex-col bg-gray-100">
@@ -1699,17 +1750,23 @@ const App = () => {
 
                 {/* Preview Container with dynamic width */}
                 <div
-                  className={`bg-white rounded shadow-lg p-8 mx-auto transition-all duration-300 ${
-                    previewMode === 'desktop' ? 'max-w-full' :
-                    previewMode === 'tablet' ? 'w-[768px]' :
-                    'w-[375px]'
-                  }`}
+                  className="bg-white rounded shadow-lg p-8 mx-auto transition-all duration-500 ease-in-out"
+                  style={{
+                    maxWidth: previewMode === 'desktop' ? '100%' :
+                              previewMode === 'tablet' ? '768px' : '375px'
+                  }}
                 >
                   <div className="mb-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 border border-purple-200">
                     <h2 className="text-xl font-bold mb-2 text-purple-900">🎨 Visual Editor</h2>
-                    <p className="text-sm text-purple-700">
-                      Перетаскивайте элементы для изменения порядка. Наведите курсор для отображения типа элемента. Кликните для выбора и редактирования.
-                    </p>
+                    <div className="text-sm text-purple-700 space-y-2">
+                      <p className="font-medium">✨ Улучшенный редактор с поддержкой drag & drop:</p>
+                      <ul className="list-disc list-inside space-y-1 text-xs ml-2">
+                        <li>Перетаскивайте элементы используя <strong>drag handle</strong> (⋮⋮)</li>
+                        <li>Быстрые действия на hover: <strong>дублировать</strong> и <strong>удалить</strong></li>
+                        <li>Клавиатурные шорткаты: <kbd className="px-1 py-0.5 bg-purple-200 rounded text-purple-900 font-mono">Del</kbd> - удалить, <kbd className="px-1 py-0.5 bg-purple-200 rounded text-purple-900 font-mono">Ctrl+D</kbd> - дублировать</li>
+                        <li>Точные зоны вставки: перед, после или внутрь контейнера</li>
+                      </ul>
+                    </div>
                   </div>
 
                   {structure.length === 0 ? (

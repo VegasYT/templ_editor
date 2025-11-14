@@ -340,22 +340,39 @@ const App = () => {
     const hasChildren = element.children !== undefined;
     const isEmpty = hasChildren && element.children.length === 0;
 
-    // Use fixed pixel zones for better predictability
-    const EDGE_ZONE_SIZE = 30; // pixels for before/after zones
+    // Improved drop zone calculation for better UX (like Elementor)
+    // Use dynamic zones based on element height
+    const MIN_EDGE_SIZE = 20; // minimum pixels for edge zones
+    const MAX_EDGE_SIZE = 60; // maximum pixels for edge zones
+
+    // Calculate edge size as 20% of height, but clamp between min and max
+    const dynamicEdgeSize = Math.max(MIN_EDGE_SIZE, Math.min(MAX_EDGE_SIZE, height * 0.2));
 
     if (hasChildren) {
       // For empty containers: entire area is 'inside' zone for easier dropping
       if (isEmpty) {
         setDropZone('inside');
       } else {
-        // For non-empty containers: use fixed pixel zones at edges
-        // This prevents huge before/after zones when container has lots of content
-        if (y < EDGE_ZONE_SIZE) {
+        // For non-empty containers: use dynamic zones
+        // Prioritize before/after for easier extraction and placement
+        if (y < dynamicEdgeSize) {
           setDropZone('before');
-        } else if (y > height - EDGE_ZONE_SIZE) {
+        } else if (y > height - dynamicEdgeSize) {
           setDropZone('after');
         } else {
-          setDropZone('inside');
+          // In the middle area, check if we're closer to edges
+          // This makes it easier to place elements before/after
+          const distanceFromTop = y;
+          const distanceFromBottom = height - y;
+          const threshold = height * 0.35; // 35% threshold for inside zone
+
+          if (distanceFromTop < threshold && distanceFromTop >= dynamicEdgeSize) {
+            setDropZone('before');
+          } else if (distanceFromBottom < threshold && distanceFromBottom >= dynamicEdgeSize) {
+            setDropZone('after');
+          } else {
+            setDropZone('inside');
+          }
         }
       }
     } else {
@@ -733,18 +750,15 @@ const App = () => {
           e.stopPropagation();
           setSelectedElement({ element, path: currentPath });
         }}
-        className={`relative group transition-all duration-200 ease-in-out ${
+        className={`relative group transition-all duration-150 ease-in-out ${
           isSelected ? 'ring-2 ring-blue-500 ring-offset-2 bg-blue-50' : ''
         } ${
           canAcceptDrop && !isDraggedOver ? 'hover:ring-1 hover:ring-gray-300 hover:shadow-sm hover:bg-gray-50' : ''
-        } ${
-          isDraggedOver ? 'shadow-xl scale-[1.02]' : ''
         }`}
         style={{
           minHeight: element.children ? '40px' : 'auto',
-          marginBottom: isDraggedOver && dropZone === 'after' ? '16px' : '0',
-          marginTop: isDraggedOver && dropZone === 'before' ? '16px' : '0',
-          overflow: 'visible'
+          overflow: 'visible',
+          opacity: draggedItem && JSON.stringify(draggedItem) === JSON.stringify(currentPath) ? '0.4' : '1'
         }}
       >
         {/* Element controls overlay - Single handle or breadcrumb */}
@@ -833,28 +847,42 @@ const App = () => {
           </div>
         </div>
 
-        {/* Drop indicators based on zone - Improved version */}
+        {/* Drop indicators based on zone - Elementor-style */}
         {isDraggedOver && dropZone === 'before' && (
-          <div className="absolute -top-2 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 via-blue-500 to-blue-400 z-30 shadow-lg animate-pulse">
-            <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-gradient-to-r from-blue-600 to-blue-500 text-white text-xs px-4 py-1.5 rounded-full font-semibold shadow-xl whitespace-nowrap border-2 border-blue-300 flex items-center gap-1">
-              <span className="text-base">↑</span> Вставить перед
+          <div className="absolute -top-1 left-0 right-0 z-30 pointer-events-none">
+            {/* Insertion line */}
+            <div className="h-0.5 bg-blue-500 shadow-lg relative">
+              {/* Circles at the ends */}
+              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-blue-500 rounded-full"></div>
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-blue-500 rounded-full"></div>
+            </div>
+            {/* Label */}
+            <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-xs px-3 py-1 rounded font-medium shadow-lg whitespace-nowrap">
+              Вставить сюда
             </div>
           </div>
         )}
 
         {isDraggedOver && dropZone === 'after' && (
-          <div className="absolute -bottom-2 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 via-blue-500 to-blue-400 z-30 shadow-lg animate-pulse">
-            <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-gradient-to-r from-blue-600 to-blue-500 text-white text-xs px-4 py-1.5 rounded-full font-semibold shadow-xl whitespace-nowrap border-2 border-blue-300 flex items-center gap-1">
-              <span className="text-base">↓</span> Вставить после
+          <div className="absolute -bottom-1 left-0 right-0 z-30 pointer-events-none">
+            {/* Insertion line */}
+            <div className="h-0.5 bg-blue-500 shadow-lg relative">
+              {/* Circles at the ends */}
+              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-blue-500 rounded-full"></div>
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-blue-500 rounded-full"></div>
+            </div>
+            {/* Label */}
+            <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-xs px-3 py-1 rounded font-medium shadow-lg whitespace-nowrap">
+              Вставить сюда
             </div>
           </div>
         )}
 
         {isDraggedOver && dropZone === 'inside' && (
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-100 via-green-100 to-teal-100 border-4 border-dashed border-emerald-500 rounded-lg z-30 flex items-center justify-center pointer-events-none backdrop-blur-sm animate-pulse">
-            <div className="bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 text-white text-sm px-6 py-3 rounded-full font-bold shadow-2xl border-2 border-emerald-300 flex items-center gap-2">
-              <span className="text-lg">📦</span>
-              <span>Вставить внутрь контейнера</span>
+          <div className="absolute inset-0 border-2 border-dashed border-blue-500 bg-blue-50/50 rounded-lg z-30 flex items-center justify-center pointer-events-none">
+            <div className="bg-blue-500 text-white text-xs px-4 py-2 rounded-lg font-medium shadow-lg flex items-center gap-2">
+              <span>📦</span>
+              <span>Вставить внутрь</span>
             </div>
           </div>
         )}

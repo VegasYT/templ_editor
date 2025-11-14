@@ -296,6 +296,8 @@ const App = () => {
     setDraggedItem(path);
     setDraggedElementType(null);
     e.dataTransfer.effectAllowed = 'move';
+    // Add visual feedback
+    e.currentTarget.style.opacity = '0.5';
   };
 
   // Drag start for new elements from left panel
@@ -316,7 +318,15 @@ const App = () => {
 
     // Determine drop zone based on cursor position
     const element = getElementByPath(structure, path);
-    const hasChildren = element && element.children !== undefined;
+
+    // Guard against undefined element
+    if (!element) {
+      setDropZone('after');
+      setDropTarget(path);
+      return;
+    }
+
+    const hasChildren = element.children !== undefined;
 
     if (hasChildren) {
       // For containers: divide into 3 zones
@@ -342,6 +352,11 @@ const App = () => {
   const handleDragLeave = (e) => {
     e.preventDefault();
     e.stopPropagation();
+    // Clear drop target when leaving
+    if (e.target === e.currentTarget) {
+      setDropTarget(null);
+      setDropZone(null);
+    }
   };
 
   const handleDrop = (e, targetPath) => {
@@ -475,6 +490,11 @@ const App = () => {
     setDraggedItem(null);
     setDropTarget(null);
     setDropZone(null);
+
+    // Restore opacity of dragged elements
+    document.querySelectorAll('[draggable="true"]').forEach(el => {
+      el.style.opacity = '1';
+    });
   };
 
 
@@ -562,16 +582,29 @@ const App = () => {
         onDragOver={(e) => handleDragOver(e, currentPath)}
         onDragLeave={handleDragLeave}
         onDrop={(e) => handleDrop(e, currentPath)}
+        onDragEnd={(e) => {
+          // Restore opacity on drag end
+          e.currentTarget.style.opacity = '1';
+          setDraggedItem(null);
+          setDropTarget(null);
+          setDropZone(null);
+        }}
         onClick={(e) => {
           e.stopPropagation();
           setSelectedElement({ element, path: currentPath });
         }}
-        className={`relative group transition-all ${
+        className={`relative group transition-all cursor-move ${
           isSelected ? 'ring-2 ring-blue-500 ring-offset-2' : ''
         } ${
-          canAcceptDrop && !isDraggedOver ? 'hover:ring-1 hover:ring-gray-300' : ''
+          canAcceptDrop && !isDraggedOver ? 'hover:ring-1 hover:ring-gray-300 hover:shadow-sm' : ''
+        } ${
+          isDraggedOver ? 'shadow-lg' : ''
         }`}
-        style={{ minHeight: element.children ? '40px' : 'auto' }}
+        style={{
+          minHeight: element.children ? '40px' : 'auto',
+          marginBottom: isDraggedOver && dropZone === 'after' ? '12px' : '0',
+          marginTop: isDraggedOver && dropZone === 'before' ? '12px' : '0'
+        }}
       >
         {/* Element label overlay */}
         <div className="absolute top-0 left-0 opacity-0 group-hover:opacity-100 bg-blue-500 text-white text-xs px-2 py-0.5 rounded-br z-20 transition-opacity shadow-lg">
@@ -581,25 +614,25 @@ const App = () => {
 
         {/* Drop indicators based on zone */}
         {isDraggedOver && dropZone === 'before' && (
-          <div className="absolute top-0 left-0 right-0 h-1 bg-blue-500 z-30 shadow-lg">
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-xs px-3 py-1 rounded-full font-semibold shadow-lg whitespace-nowrap">
+          <div className="absolute -top-1 left-0 right-0 h-2 bg-blue-500 z-30 shadow-lg rounded-full">
+            <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs px-3 py-1.5 rounded-full font-semibold shadow-xl whitespace-nowrap border-2 border-blue-300">
               ↑ Вставить перед
             </div>
           </div>
         )}
 
         {isDraggedOver && dropZone === 'after' && (
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-500 z-30 shadow-lg">
-            <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-xs px-3 py-1 rounded-full font-semibold shadow-lg whitespace-nowrap">
+          <div className="absolute -bottom-1 left-0 right-0 h-2 bg-blue-500 z-30 shadow-lg rounded-full">
+            <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs px-3 py-1.5 rounded-full font-semibold shadow-xl whitespace-nowrap border-2 border-blue-300">
               ↓ Вставить после
             </div>
           </div>
         )}
 
         {isDraggedOver && dropZone === 'inside' && (
-          <div className="absolute inset-0 bg-green-100 bg-opacity-80 border-4 border-dashed border-green-500 rounded z-20 flex items-center justify-center pointer-events-none">
-            <div className="bg-green-600 text-white text-sm px-4 py-2 rounded-full font-bold shadow-xl animate-pulse">
-              📦 Вставить внутрь
+          <div className="absolute inset-0 bg-gradient-to-br from-green-100 to-emerald-100 bg-opacity-90 border-4 border-dashed border-green-500 rounded-lg z-20 flex items-center justify-center pointer-events-none backdrop-blur-sm">
+            <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white text-sm px-5 py-2.5 rounded-full font-bold shadow-xl animate-pulse border-2 border-green-300">
+              📦 Вставить внутрь контейнера
             </div>
           </div>
         )}

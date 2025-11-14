@@ -8,9 +8,11 @@ const JsonEditorModal = ({ isOpen, onClose, structure, editableStyles, defaultDa
   useEffect(() => {
     if (isOpen) {
       const jsonData = {
-        structure,
-        editableElements: Object.keys(defaultData),
-        editableStyles,
+        settings: {
+          structure,
+          editableElements: Object.keys(defaultData),
+          editableStyles
+        },
         default_data: defaultData
       };
       setJsonText(JSON.stringify(jsonData, null, 2));
@@ -22,25 +24,33 @@ const JsonEditorModal = ({ isOpen, onClose, structure, editableStyles, defaultDa
     try {
       const parsed = JSON.parse(jsonText);
 
-      // Validate structure
-      if (!parsed.structure) {
-        throw new Error('Missing "structure" field');
+      // Validate settings object
+      if (!parsed.settings) {
+        throw new Error('Missing "settings" field');
       }
-      if (!Array.isArray(parsed.structure)) {
-        throw new Error('Field "structure" must be an array');
+      if (typeof parsed.settings !== 'object' || Array.isArray(parsed.settings)) {
+        throw new Error('Field "settings" must be an object');
+      }
+
+      // Validate structure
+      if (!parsed.settings.structure) {
+        throw new Error('Missing "settings.structure" field');
+      }
+      if (!Array.isArray(parsed.settings.structure)) {
+        throw new Error('Field "settings.structure" must be an array');
       }
 
       // Validate editableElements (optional)
-      if (parsed.editableElements !== undefined && !Array.isArray(parsed.editableElements)) {
-        throw new Error('Field "editableElements" must be an array if provided');
+      if (parsed.settings.editableElements !== undefined && !Array.isArray(parsed.settings.editableElements)) {
+        throw new Error('Field "settings.editableElements" must be an array if provided');
       }
 
       // Validate editableStyles
-      if (!parsed.editableStyles) {
-        throw new Error('Missing "editableStyles" field');
+      if (!parsed.settings.editableStyles) {
+        throw new Error('Missing "settings.editableStyles" field');
       }
-      if (typeof parsed.editableStyles !== 'object' || Array.isArray(parsed.editableStyles)) {
-        throw new Error('Field "editableStyles" must be an object');
+      if (typeof parsed.settings.editableStyles !== 'object' || Array.isArray(parsed.settings.editableStyles)) {
+        throw new Error('Field "settings.editableStyles" must be an object');
       }
 
       // Validate default_data
@@ -51,11 +61,11 @@ const JsonEditorModal = ({ isOpen, onClose, structure, editableStyles, defaultDa
         throw new Error('Field "default_data" must be an object');
       }
 
-      // Map default_data to defaultData for internal state
+      // Map to internal state
       onSave({
-        structure: parsed.structure,
-        editableElements: parsed.editableElements,
-        editableStyles: parsed.editableStyles,
+        structure: parsed.settings.structure,
+        editableElements: parsed.settings.editableElements,
+        editableStyles: parsed.settings.editableStyles,
         defaultData: parsed.default_data
       });
       setError('');
@@ -106,7 +116,7 @@ const JsonEditorModal = ({ isOpen, onClose, structure, editableStyles, defaultDa
         {/* Footer */}
         <div className="flex items-center justify-between p-4 border-t bg-gray-50">
           <div className="text-sm text-gray-600">
-            Edit structure, editableElements, editableStyles, and default_data
+            Edit settings (structure, editableElements, editableStyles) and default_data
           </div>
           <div className="flex gap-2">
             <button

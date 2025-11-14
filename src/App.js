@@ -682,6 +682,31 @@ const App = () => {
     const hasChildren = element.children !== undefined;
     const canAcceptDrop = draggedItem || draggedElementType;
 
+    // Build breadcrumb path for hierarchical handles
+    const buildBreadcrumb = () => {
+      const breadcrumb = [];
+      let currentStructure = structure;
+
+      for (let i = 0; i < currentPath.length; i++) {
+        const index = currentPath[i];
+        const elem = currentStructure[index];
+        if (elem) {
+          breadcrumb.push({
+            element: elem,
+            path: currentPath.slice(0, i + 1),
+            label: elem.type
+          });
+          if (elem.children) {
+            currentStructure = elem.children;
+          }
+        }
+      }
+
+      return breadcrumb;
+    };
+
+    const breadcrumb = buildBreadcrumb();
+
     // Inline styles from element.styles
     const inlineStyles = {};
     if (element.styles) {
@@ -741,18 +766,35 @@ const App = () => {
           overflow: 'visible'
         }}
       >
-        {/* Element controls overlay - Always visible like Elementor */}
+        {/* Element controls overlay - Breadcrumb handles */}
         <div className="absolute top-0 left-0 right-0 opacity-30 group-hover:opacity-100 z-20 transition-opacity flex items-center justify-between gap-2 pointer-events-none">
-          {/* Left side - Drag handle - ALWAYS visible for easy access */}
-          <div
-            data-drag-handle
-            className="flex items-center gap-1 bg-blue-500/95 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-br shadow-md pointer-events-auto cursor-grab active:cursor-grabbing"
-          >
-            <GripVertical size={14} />
-            <span className="font-semibold select-none">
-              {element.type}
-              {hasChildren && ' (container)'}
-            </span>
+          {/* Left side - Breadcrumb handles from parent to child */}
+          <div className="flex items-center gap-0.5 pointer-events-auto">
+            {breadcrumb.map((crumb, idx) => (
+              <div
+                key={crumb.path.join('-')}
+                data-drag-handle
+                draggable
+                onDragStart={(e) => {
+                  e.stopPropagation();
+                  handleDragStart(e, crumb.path);
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedElement({ element: crumb.element, path: crumb.path });
+                }}
+                className={`flex items-center gap-1 px-2 py-1 text-white text-xs font-semibold select-none cursor-grab active:cursor-grabbing transition-all ${
+                  idx === breadcrumb.length - 1
+                    ? 'bg-blue-600/95 backdrop-blur-sm rounded-br shadow-md' // Current element
+                    : 'bg-gray-600/90 backdrop-blur-sm hover:bg-gray-700/90' // Parent elements
+                } ${idx === 0 ? 'rounded-tl' : ''}`}
+                title={`Drag ${crumb.label}${crumb.element.children !== undefined ? ' (container)' : ''}`}
+              >
+                <GripVertical size={12} />
+                <span>{crumb.label}</span>
+                {idx < breadcrumb.length - 1 && <span className="opacity-50">/</span>}
+              </div>
+            ))}
           </div>
 
           {/* Right side - Quick actions - visible on hover */}

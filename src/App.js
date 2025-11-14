@@ -707,14 +707,14 @@ const App = () => {
         {isVoidElement ? (
           <ElementTag
             className={element.className || ''}
-            style={{ ...inlineStyles, position: 'relative', zIndex: 2 }}
+            style={inlineStyles}
             src={element.src}
             alt={element.alt}
           />
         ) : (
           <ElementTag
             className={element.className || ''}
-            style={{ ...inlineStyles, position: 'relative', zIndex: 2 }}
+            style={inlineStyles}
             src={element.src}
             alt={element.alt}
             href={element.href}

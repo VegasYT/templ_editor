@@ -24,6 +24,17 @@
       work correctly both with client-side routing and a non-root public URL.
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
+    <!-- Tailwind Play CDN for dynamic class generation in visual editor -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      // Configure Tailwind to work alongside the build-time version
+      tailwind.config = {
+        // This ensures CDN Tailwind doesn't conflict with build-time Tailwind
+        corePlugins: {
+          preflight: false, // Disable base styles since we already have them
+        }
+      }
+    </script>
     <title>React App</title>
   </head>
   <body>

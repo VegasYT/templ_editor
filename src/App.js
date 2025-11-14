@@ -915,11 +915,7 @@ const App = () => {
     return (
       <div
         key={pathStr}
-        onClick={(e) => {
-          e.stopPropagation();
-          setSelectedElement({ element, path: currentPath });
-        }}
-        className={`relative group transition-all duration-150 ease-in-out ${
+        className={`relative group transition-all duration-150 ease-in-out pointer-events-none ${
           isSelected ? 'ring-2 ring-blue-500 ring-offset-2 bg-blue-50' : ''
         }`}
         style={{
@@ -1020,14 +1016,18 @@ const App = () => {
         {isVoidElement ? (
           <ElementTag
             className={element.className || ''}
-            style={inlineStyles}
+            style={{...inlineStyles, pointerEvents: 'auto'}}
             src={element.srcKey ? defaultData[element.srcKey] : undefined}
             alt={element.altKey ? defaultData[element.altKey] : undefined}
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedElement({ element, path: currentPath });
+            }}
           />
         ) : (
           <ElementTag
             className={element.className || ''}
-            style={{...inlineStyles, position: 'relative'}}
+            style={{...inlineStyles, position: 'relative', pointerEvents: 'auto'}}
             src={element.srcKey ? defaultData[element.srcKey] : undefined}
             alt={element.altKey ? defaultData[element.altKey] : undefined}
             href={element.hrefKey ? defaultData[element.hrefKey] : undefined}
@@ -1038,6 +1038,10 @@ const App = () => {
             muted={element.muted}
             autoPlay={element.autoPlay}
             allowFullScreen={element.allowFullScreen}
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedElement({ element, path: currentPath });
+            }}
           >
             {content}
 

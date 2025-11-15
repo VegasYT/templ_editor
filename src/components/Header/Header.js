@@ -1,5 +1,5 @@
 import React from 'react';
-import { Settings, Eye, Code, Upload, Download } from 'lucide-react';
+import { Settings, Eye, Code, Upload, Download, FileJson } from 'lucide-react';
 
 const Header = ({
   templateName,
@@ -9,7 +9,8 @@ const Header = ({
   viewMode,
   setViewMode,
   onImport,
-  onExport
+  onExport,
+  onOpenJsonEditor
 }) => {
   return (
     <div className="bg-white border-b px-4 py-3 flex items-center justify-between">
@@ -53,6 +54,16 @@ const Header = ({
         >
           <Code size={14} className="inline mr-1" /> JSON
         </button>
+
+        <div className="border-l pl-2 ml-2">
+          <button
+            onClick={onOpenJsonEditor}
+            className="px-3 py-1 bg-purple-500 text-white rounded hover:bg-purple-600 text-sm"
+            title="Edit JSON in modal"
+          >
+            <FileJson size={14} className="inline mr-1" /> Edit JSON
+          </button>
+        </div>
 
         <div className="border-l pl-2 ml-2">
           <label className="px-3 py-1 bg-green-500 text-white rounded cursor-pointer hover:bg-green-600 text-sm">

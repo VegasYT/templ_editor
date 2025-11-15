@@ -26,6 +26,7 @@ import ElementTree from './components/ElementTree';
 import VisualElement from './components/VisualElement';
 import DropZone from './components/DropZone';
 import EmptyCanvasDropZone from './components/EmptyCanvasDropZone';
+import JsonEditorModal from './components/JsonEditorModal';
 
 const App = () => {
   const [structure, setStructure] = useState([]);
@@ -42,6 +43,9 @@ const App = () => {
   // dnd-kit state
   const [activeId, setActiveId] = useState(null);
   const [draggedElementType, setDraggedElementType] = useState(null);
+
+  // JSON editor modal state
+  const [isJsonEditorOpen, setIsJsonEditorOpen] = useState(false);
 
   // Configure sensors for drag and drop
   const sensors = useSensors(
@@ -250,6 +254,13 @@ const App = () => {
     });
   };
 
+  // Handle JSON editor save
+  const handleJsonSave = (data) => {
+    setStructure(data.structure);
+    setEditableStyles(data.editableStyles);
+    setDefaultData(data.defaultData);
+  };
+
   // Render drop zone
   const renderDropZone = (parentPath, insertIndex) => {
     return (
@@ -303,6 +314,7 @@ const App = () => {
         setViewMode={setViewMode}
         onImport={importJSON}
         onExport={exportJSON}
+        onOpenJsonEditor={() => setIsJsonEditorOpen(true)}
       />
 
       {/* Main Content */}
@@ -1131,6 +1143,16 @@ const App = () => {
         )}
       </div>
       </div>
+
+      {/* JSON Editor Modal */}
+      <JsonEditorModal
+        isOpen={isJsonEditorOpen}
+        onClose={() => setIsJsonEditorOpen(false)}
+        structure={structure}
+        editableStyles={editableStyles}
+        defaultData={defaultData}
+        onSave={handleJsonSave}
+      />
     </DndContext>
   );
 };
